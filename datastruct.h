@@ -1,6 +1,6 @@
-#ifndef _DATASTRUCT_H
+#ifndef _DATASTRUCT_H_
 
-#define _DATASTRUCT_H
+#define _DATASTRUCT_H_
 
 enum { TERMINAL, NOTERMINAL, EMPTY };
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "syntax.tab.h"
+#include "symbol.h"
 
 extern FILE* f;
 int yyparse (void);
@@ -12,6 +13,7 @@ int main(int argc, char** argv) {
         perror(argv[1]);
         return 1;
     }
+    init_table();
     yyrestart(f);
     yyparse();
     return 0;

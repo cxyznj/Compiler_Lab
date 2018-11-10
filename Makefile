@@ -1,7 +1,7 @@
 CFILES = $(shell find ./ -name "*.c")
 
 parser : syntax.tab.c main.c lex.yy.c datastruct.c
-	gcc syntax.tab.c main.c datastruct.c -lfl -ly -o parser
+	gcc syntax.tab.c main.c datastruct.c symbol.c -lfl -ly -o parser
 	rm syntax.tab.c syntax.tab.h lex.yy.c
 
 syntax.tab.c : syntax.y

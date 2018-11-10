@@ -61,10 +61,10 @@ Type ("int"|"float")
                                                       yylval = (struct TreeNode*)CreatNode(TERMINAL, "FLOAT", yylineno, yycolumn, v);
                                                       return FLOAT; }
 
-{Type} { union Val v;
-                strcpy(v.strvalue, yytext);
-                yylval = (struct TreeNode*)CreatNode(TERMINAL, "TYPE", yylineno, yycolumn, v);
-                return TYPE; }
+{Type} {    union Val v;
+            strcpy(v.strvalue, yytext);
+            yylval = (struct TreeNode*)CreatNode(TERMINAL, "TYPE", yylineno, yycolumn, v);
+            return TYPE; }
 
 "struct"  { union Val v;
             v.intvalue = 0;

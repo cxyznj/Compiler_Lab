@@ -7,6 +7,7 @@
     #include <stdio.h>   
     #include "lex.yy.c"
     #include "datastruct.h"
+    #include "symbol.h"
     
     int yyerror(char* msg);
     int printflag = 1;
@@ -39,26 +40,15 @@
 
 %nonassoc ELSE
 
-
-/* %token ExtDef ExtDefList ExtDecLit
-
-%token Specifier StructSpecifier OptTag Tag
-
-%token VarDec FunDec VarList ParamDec
-
-%token CompSt StmtList Stmt
-
-%token DefList Def DecList Dec
-
-%token Exp Args */
-
 %%
 
 Program : ExtDefList {  // printf("Line %d, Column %d\n", yylloc.first_line, yylloc.first_column);
                         union Val v; v.intvalue = 0;
                         $$ = CreatNode(NOTERMINAL, "Program", yyloc.first_line, yylloc.first_column, v);
                         add_child($$, $1);
-                        if (printflag) printTree($$, 0); }
+                        if (printflag) printTree($$, 0);
+                        build_vartable($$);
+                         }
     ;
 ExtDefList : ExtDef ExtDefList {    union Val v; v.intvalue = 0;
                                     $$ = CreatNode(NOTERMINAL, "ExtDefList", yyloc.first_line, yylloc.first_column, v);
@@ -81,6 +71,12 @@ ExtDef : Specifier ExtDecList SEMI {    union Val v; v.intvalue = 0;
                                 add_child($$, $1);
                                 add_sibling($1, $2);
                                 add_sibling($2, $3); }
+    | Specifier FunDec SEMI {   union Val v; v.intvalue = 0;
+                                $$ = CreatNode(NOTERMINAL, "ExtDef", yyloc.first_line, yylloc.first_column, v);
+                                add_child($$, $1);
+                                add_sibling($1, $2);
+                                add_sibling($2, $3);
+                            }
     ;
 ExtDecList : VarDec {   union Val v; v.intvalue = 0;
                         $$ = CreatNode(NOTERMINAL, "ExtDecList", yyloc.first_line, yylloc.first_column, v);
@@ -89,13 +85,12 @@ ExtDecList : VarDec {   union Val v; v.intvalue = 0;
                                 $$ = CreatNode(NOTERMINAL, "ExtDecList", yyloc.first_line, yylloc.first_column, v);
                                 add_child($$, $1);
                                 add_sibling($1, $2);
-                                add_sibling($$, $3); }
+                                add_sibling($2, $3); }
     ;
-
 Specifier : TYPE {  union Val v; v.intvalue = 0;
                     $$ = CreatNode(NOTERMINAL, "Specifier", yyloc.first_line, yylloc.first_column, v);
                     add_child($$, $1); }
-    | StructSpecifier {    union Val v; v.intvalue = 0;
+    | StructSpecifier {     union Val v; v.intvalue = 0;
                             $$ = CreatNode(NOTERMINAL, "Specifier", yyloc.first_line, yylloc.first_column, v);
                             add_child($$, $1); }
     ;
