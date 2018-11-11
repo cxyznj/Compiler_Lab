@@ -3,6 +3,8 @@
 // 初始化符号表（给符号表的头项分配空间）
 int init_table() {
     vartablehead = NULL;
+    strutablehead = NULL;
+    emptyname = 1;
     functablehead = NULL;
     return 1;
 }
@@ -27,6 +29,12 @@ struct Type* create_type() {
 }
 struct FieldList* create_fieldlist() {
     struct FieldList* rt = malloc(sizeof(struct FieldList));
+    rt->name[0] = '\n';
+    rt->next = NULL;
+    return rt;
+}
+struct StructTable* create_structtable() {
+    struct StructTable* rt = malloc(sizeof(struct StructTable));
     rt->name[0] = '\n';
     rt->next = NULL;
     return rt;
@@ -60,15 +68,29 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
     printf("%s\n", cur->name);
 
     if(strcmp(cur->name, "Specifier") == 0) {
+        // 基本类型
         if(strcmp(cur->child->name, "TYPE") == 0) {
             char* typename = malloc(sizeof(char) * 50);
             strcpy(typename, cur->child->val.strvalue);
             find_vartable(cur->sibling, cur, typename, arr, arrdepth);
         }
+        // 结构体的引用
         else if(strcmp(cur->child->child->sibling->name, "Tag") == 0) {
             char* typename = malloc(sizeof(char) * 50);
             strcpy(typename, cur->child->child->sibling->child->val.strvalue);
             find_vartable(cur->sibling, cur, typename, arr, arrdepth);
+        }
+        // TODO:结构体的构造
+        else {
+            char* struname = malloc(sizeof(char) * 50);
+            // 如果OptTag不推导到空
+            if(cur->child->child->sibling->child != NULL)
+                strcpy(struname, cur->child->child->sibling->child->val.strvalue);
+            else {
+                sprintf(struname, "%d", emptyname);
+                emptyname++;
+            }
+
         }
     }
     else if(strcmp(cur->name, "ExtDecList") == 0) {
@@ -95,6 +117,20 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 else {
                     nvartable->vartype.kind = ARRAY;
                     // TODO:处理数组情况
+                    nvartable->vartype.u.array.size = arr[arrdepth - 1];
+                    //nvartable->vartype.u.array.elem = create_type();
+                    struct Type* elem = &(nvartable->vartype);
+                    int i = arrdepth - 2;
+                    for( ; i >= 0; i--) {
+                        struct Type* ntype = create_type();
+                        ntype->kind = ARRAY;
+                        ntype->u.array.size = arr[i];
+                        elem->u.array.elem = ntype;
+                        elem = ntype;
+                    }
+                    elem->u.array.elem = create_type();
+                    elem->u.array.elem->kind = BASIC;
+                    elem->u.array.elem->u.basic = 1;
                 }
             }
             else if(strcmp(type, "float") == 0) {
@@ -105,6 +141,20 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 else {
                     nvartable->vartype.kind = ARRAY;
                     // TODO:处理数组情况
+                    nvartable->vartype.u.array.size = arr[arrdepth - 1];
+                    //nvartable->vartype.u.array.elem = create_type();
+                    struct Type* elem = &(nvartable->vartype);
+                    int i = arrdepth - 2;
+                    for( ; i >= 0; i--) {
+                        struct Type* ntype = create_type();
+                        ntype->kind = ARRAY;
+                        ntype->u.array.size = arr[i];
+                        elem->u.array.elem = ntype;
+                        elem = ntype;
+                    }
+                    elem->u.array.elem = create_type();
+                    elem->u.array.elem->kind = BASIC;
+                    elem->u.array.elem->u.basic = 2;                    
                 }
             }
             // 用户struct的类型
@@ -143,7 +193,39 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
 }
 void print_vartable() {
     while(vartablehead != NULL) {
-        printf("%s: %d\n",vartablehead->name, vartablehead->vartype.kind);
+        printf("%s: ",vartablehead->name);
+        print_type(&vartablehead->vartype);
+        printf("\n");
         vartablehead = vartablehead->next;
+    }
+}
+void print_type(struct Type* head) {
+    if(head->kind == BASIC) {
+        if(head->u.basic == 1)
+            printf("int");
+        else 
+            printf("float");
+    }
+    else if(head->kind = ARRAY) {
+        struct Type* t = head;
+        while(t->kind == ARRAY) {
+            printf("[%d]", t->u.array.size);
+            t = t->u.array.elem;
+        }
+        if(t->u.basic == 1)
+            printf("int");
+        else 
+            printf("float");
+    }
+    else if(head->kind = STRUCTURE) {
+        printf("struct{ ");
+        struct FieldList* fl = head->u.structure;
+        while(fl != NULL) {
+            printf("%s ", fl->name);
+            print_type(&fl->type);
+            printf("\n");
+            fl = fl->next;
+        }
+        printf("}\n");
     }
 }

@@ -31,6 +31,16 @@ struct FieldList {
     struct FieldList* next;
 };
 
+// 结构体表
+struct StructTable {
+    // 结构体的名字
+    char name[50];
+    // 结构体的域
+    struct FieldList structure;
+    // 结构体表下一项的指针
+    struct StructTable* next;
+};
+
 // 变量（结构体）符号表
 struct VarTable {
     // 变量名
@@ -63,6 +73,10 @@ struct FunctionTable {
 
 // 变量符号表
 struct VarTable* vartablehead;
+// 结构体表
+struct StructTable* strutablehead;
+// 给无名结构体的命名种子
+int emptyname;
 // 函数符号表
 struct FunctionTable* functablehead;
 
@@ -75,6 +89,7 @@ void build_functable(struct TreeNode* tn);
 // 安全地新建一个结构体项
 struct Type* create_type();
 struct FieldList* create_fieldlist();
+struct StructTable* create_structtable();
 struct VarTable* create_vartable();
 struct FunctionType* create_functiontype();
 struct FunctionTable* create_functiontable();
@@ -83,4 +98,6 @@ struct FunctionTable* create_functiontable();
 void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, int* arr, int arrdepth);
 // 打印符号表
 void print_vartable();
+// 打印类型体
+void print_type(struct Type* head);
 #endif
