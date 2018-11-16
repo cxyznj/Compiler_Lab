@@ -46,7 +46,7 @@ Program : ExtDefList {  // printf("Line %d, Column %d\n", yylloc.first_line, yyl
                         union Val v; v.intvalue = 0;
                         $$ = CreatNode(NOTERMINAL, "Program", yyloc.first_line, yylloc.first_column, v);
                         add_child($$, $1);
-                        if (printflag) printTree($$, 0);
+                        // if (printflag) printTree($$, 0);
                         build_vartable($$);
                          }
     ;

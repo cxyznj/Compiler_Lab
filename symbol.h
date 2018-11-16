@@ -36,12 +36,12 @@ struct StructTable {
     // 结构体的名字
     char name[50];
     // 结构体的域
-    struct FieldList structure;
+    struct FieldList* structure;
     // 结构体表下一项的指针
     struct StructTable* next;
 };
 
-// 变量（结构体）符号表
+// 变量符号表
 struct VarTable {
     // 变量名
     char name[50];    
@@ -96,8 +96,15 @@ struct FunctionTable* create_functiontable();
 
 // 为vartable实现的树的遍历
 void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, int* arr, int arrdepth);
+// 检查符号表中是否有重复定义
+int check_varconflict(char* varname);
+// 处理结构体中的一条DecList
+void add_onedeclist(char* type_name, struct FieldList** starfl, struct TreeNode* declist);
 // 打印符号表
 void print_vartable();
 // 打印类型体
 void print_type(struct Type* head);
+// 打印结构体表
+void print_strutable();
+
 #endif
