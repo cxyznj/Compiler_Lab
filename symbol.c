@@ -14,6 +14,7 @@ void build_vartable(struct TreeNode* tn) {
     find_vartable(tn, NULL, NULL, NULL, 0);
     print_vartable();
     print_strutable();
+    print_functable();
 }
 
 // 构建函数符号表
@@ -55,6 +56,7 @@ struct FunctionType* create_functiontype() {
 }
 struct FunctionTable* create_functiontable() {
     struct FunctionTable* rt = malloc(sizeof(struct FunctionTable));
+    rt->func = NULL;
     rt->state = 0;
     rt->next = NULL;
     return rt;
@@ -193,13 +195,14 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
             // 用户struct的类型
             else {
                 nvartable->vartype.kind = STRUCTURE;
-                struct StructTable* fst = strutablehead;
+                /*struct StructTable* fst = strutablehead;
                 // 在符号表中找到名为nvartable的struct项，然后将FieldList复制进来
                 while(fst != NULL && strcmp(fst->name, type) != 0) fst = fst->next;
                 // TODO:处理找不到结构体定义的情况
                 assert(fst != NULL);
                 
-                nvartable->vartype.u.structure = fst->structure;
+                nvartable->vartype.u.structure = fst->structure;*/
+                nvartable->vartype.u.structure = get_fieldlist(type);
             }
             // 给符号表添加一个新项（放在链尾）
             if(vartablehead == NULL) {
@@ -218,6 +221,121 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 arr = malloc(sizeof(int) * 10);
             arr[arrdepth] = cur->child->sibling->sibling->val.intvalue;
             find_vartable(cur->child, cur, type, arr, arrdepth + 1);
+        }
+    }
+    else if(strcmp(cur->name, "FunDec") == 0) {
+        struct FunctionType* nfunctype = create_functiontype();
+        // ----函数名----
+        strcpy(nfunctype->name, cur->child->name);
+        // ----函数返回值----
+        // 注：根据C--语法，返回值不能是指针
+        if(strcmp(type, "int") == 0) {
+            nfunctype->rt_value.kind = BASIC;
+            nfunctype->rt_value.u.basic = 1;
+        }
+        else if(strcmp(type, "float") == 0) {
+            nfunctype->rt_value.kind = BASIC;
+            nfunctype->rt_value.u.basic = 2;
+        }
+        else {
+            // struct类型
+            nfunctype->rt_value.kind = STRUCTURE;
+            nfunctype->rt_value.u.structure = get_fieldlist(type);
+        }
+        // ----函数的参数表----
+        // FunDec ::= ID LP VarList RP
+        if(strcmp(cur->child->sibling->sibling->name, "VarList") == 0) {
+            struct VarTable* paramtable = NULL;
+            struct TreeNode* varlist = cur->child->sibling->sibling;
+            while(1) {
+                struct TreeNode* paramdec = varlist->child;
+                //printf("This is paramdec: %s\n", paramdec->name);
+                // 获取参数类型
+                char* paramtype = malloc(sizeof(char) * 50);
+                if(strcmp(paramdec->child->child->name, "TYPE") == 0)
+                    strcpy(paramtype, paramdec->child->child->val.strvalue);
+                else {
+                    // 在参数表中只能出现StructSpecifier ::= STRUCT Tag
+                    assert(strcmp(paramdec->child->child->child->sibling->name, "Tag") == 0);
+                    strcpy(paramtype, paramdec->child->child->child->sibling->child->val.strvalue);
+                }
+
+                // 获取参数名
+                assert(strcmp(paramdec->child->sibling->child->name, "ID") == 0);
+                char* paramname = malloc(sizeof(char) * 50);
+                strcpy(paramname, paramdec->child->sibling->child->val.strvalue);
+                //printf("The parameter is: %s(%s)\n", paramname, paramtype);
+
+                struct VarTable* npt = create_vartable();
+                strcpy(npt->name, paramname);
+                if(strcmp(paramtype, "int") == 0) {
+                    npt->vartype.kind = BASIC;
+                    npt->vartype.u.basic = 1;
+                }
+                else if (strcmp(paramtype, "float") == 0) {
+                    npt->vartype.kind = BASIC;
+                    npt->vartype.u.basic = 2;
+                }
+                else {
+                    npt->vartype.kind = STRUCTURE;
+                    npt->vartype.u.structure = get_fieldlist(paramtype);
+                }
+                // 将新的参数添加到参数表中
+                if(paramtable == NULL)
+                    paramtable = npt;
+                else {
+                    struct VarTable* fpt = paramtable;
+                    while(fpt->next != NULL) fpt = fpt->next;
+                    fpt->next = npt;
+                }
+                //printf("Add a new param %s(%s)in function:%s\n", paramname, paramtype, nfunctype->name);
+
+                // VarList ::= ParamDec
+                if(varlist->child->sibling == NULL)
+                    break;
+                // VarList ::= ParamDec COMMA VarList
+                else
+                    varlist = paramdec->sibling->sibling;
+            }
+            nfunctype->paratable = paramtable;
+        }
+        // FunDec ::= ID LP RP
+        else {
+            nfunctype->paratable = NULL;
+        }
+        // ----将该函数加入函数表----
+        // 函数的定义
+        if(strcmp(cur->sibling->name, "CompSt") == 0) {
+            // TODO:重复定义检查
+
+            struct FunctionTable* nfunctable = create_functiontable();
+            nfunctable->func = nfunctype;
+            nfunctable->state = 1;
+            if(functablehead == NULL) {
+                functablehead = nfunctable;
+            }
+            else {
+                struct FunctionTable* fft = functablehead;
+                while(fft->next != NULL) fft = fft->next;
+                fft->next = nfunctable;
+            }
+            find_vartable(cur->sibling, cur, NULL, NULL, 0);
+        }
+        // 函数的声明
+        else {
+            // TODO:重复声明检查
+
+            struct FunctionTable* nfunctable = create_functiontable();
+            nfunctable->func = nfunctype;
+            nfunctable->state = 0;
+            if(functablehead == NULL) {
+                functablehead = nfunctable;
+            }
+            else {
+                struct FunctionTable* fft = functablehead;
+                while(fft->next != NULL) fft = fft->next;
+                fft->next = nfunctable;
+            }
         }
     }
     // ----没有特殊情况，则做正常的深度遍历----
@@ -298,9 +416,18 @@ void add_onedeclist(char* type_name, struct FieldList** starfl, struct TreeNode*
     }
 }
 
+struct FieldList* get_fieldlist(char* struname) {
+    struct StructTable* fst = strutablehead;
+    // 在符号表中找到名为struname的struct项，然后将FieldList复制进来
+    while(fst != NULL && strcmp(fst->name, struname) != 0) fst = fst->next;
+    // TODO:处理找不到结构体定义的情况
+    assert(fst != NULL);
+    return (fst->structure);
+}
+
 void print_vartable() {
     struct VarTable* vt = vartablehead;
-    printf("\033[;33mName\t\tKind\t\tContent\033[0m\n");
+    printf("\033[;33mVariate Table:\nName\t\tKind\t\tContent\033[0m\n");
     while(vt != NULL) {
         printf("%s\t\t",vt->name);
         print_type(&vt->vartype);
@@ -359,10 +486,10 @@ void print_type(struct Type* head) {
         assert(0);
 }
 void print_strutable() {
-    printf("\033[;33mName\tField\033[0m\n");
+    printf("\033[;33mStructure Table:\nName\t\tField\033[0m\n");
     struct StructTable* st = strutablehead;
     for(; st != NULL; st = st->next) {
-        printf("%s\t{", st->name);
+        printf("%s\t\t{", st->name);
         struct FieldList* fl = st->structure;
         for(; fl != NULL; fl = fl->next) {
             printf("%s: ", fl->name);
@@ -386,5 +513,37 @@ void print_strutable() {
             printf("; ");
         }
         printf("}\n");
+    }
+}
+
+void print_functable() {
+    struct FunctionTable* ft = functablehead;
+    printf("\033[;33mFunction Table:\nName\tState\tReturn\tParameters\033[0m\n");
+    for(; ft != NULL; ft = ft->next) {
+        printf("%s\t%d\t", ft->func->name, ft->state);
+        if(ft->func->rt_value.kind == BASIC) {
+            if(ft->func->rt_value.u.basic == 1)
+                printf("int\t");
+            else
+                printf("float\t");
+        }
+        else {
+            // TODO:为了方便，只打印STRUCT，下同
+            printf("STRUCT\t");
+        }
+        struct VarTable* vt = ft->func->paratable;
+        for(; vt != NULL; vt = vt->next) {
+            printf("%s: ", vt->name);
+            if(vt->vartype.kind == BASIC) {
+                if(vt->vartype.u.basic == 1)
+                    printf("int; ");
+                else
+                    printf("float; ");
+            }
+            else {
+                printf("STRUCT; ");
+            }
+        }
+        printf("\n");
     }
 }

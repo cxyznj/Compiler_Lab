@@ -1,6 +1,6 @@
-#ifndef symbol
+#ifndef _SYMBOL_H_
 
-#define symbol
+#define _SYMBOL_H_
 
 #include "datastruct.h"
 #include <stdlib.h>
@@ -64,7 +64,7 @@ struct FunctionType {
 // 函数符号表
 struct FunctionTable {
     // 当前函数的属性
-    struct FunctionType func;
+    struct FunctionType* func;
     // 当前函数是否有定义的标识，state = 1表示有定义，0表示还没有定义
     int state;
     // 函数表下一项的指针
@@ -100,11 +100,15 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
 int check_varconflict(char* varname);
 // 处理结构体中的一条DecList
 void add_onedeclist(char* type_name, struct FieldList** starfl, struct TreeNode* declist);
+// 返回对应名struct类型的域
+struct FieldList* get_fieldlist(char* struname);
 // 打印符号表
 void print_vartable();
 // 打印类型体
 void print_type(struct Type* head);
 // 打印结构体表
 void print_strutable();
+// 打印函数表
+void print_functable();
 
 #endif
