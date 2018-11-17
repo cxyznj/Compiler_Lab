@@ -9,17 +9,17 @@ int init_table() {
     return 1;
 }
 
-// 构建变量符号表
+// 构建符号表
 void build_vartable(struct TreeNode* tn) {
     find_vartable(tn, NULL, NULL, NULL, 0);
+    // 打印变量表/结构体表及函数表
     print_vartable();
     print_strutable();
     print_functable();
 }
 
-// 构建函数符号表
-void build_functable(struct TreeNode* tn) {
-
+void check_program(struct TreeNode* tn) {
+    check_error(tn, NULL);
 }
 
 // 安全地新建一个结构体项
@@ -27,6 +27,7 @@ struct Type* create_type() {
     struct Type* rt = malloc(sizeof(struct Type));
     rt->kind = BASIC;
     rt->u.basic = 1;
+    rt->constant = 0;
     return rt;
 }
 struct FieldList* create_fieldlist() {
@@ -70,7 +71,6 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
     // ----错误检查----
     // 数组维度最高为10
     assert(arrdepth < 10);
-    //printf("%s\n", cur->name);
 
     // ----遍历到特定结点时，执行操作----
     if(strcmp(cur->name, "Specifier") == 0) {
@@ -198,7 +198,6 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 /*struct StructTable* fst = strutablehead;
                 // 在符号表中找到名为nvartable的struct项，然后将FieldList复制进来
                 while(fst != NULL && strcmp(fst->name, type) != 0) fst = fst->next;
-                // TODO:处理找不到结构体定义的情况
                 assert(fst != NULL);
                 
                 nvartable->vartype.u.structure = fst->structure;*/
@@ -226,7 +225,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
     else if(strcmp(cur->name, "FunDec") == 0) {
         struct FunctionType* nfunctype = create_functiontype();
         // ----函数名----
-        strcpy(nfunctype->name, cur->child->name);
+        strcpy(nfunctype->name, cur->child->val.strvalue);
         // ----函数返回值----
         // 注：根据C--语法，返回值不能是指针
         if(strcmp(type, "int") == 0) {
@@ -307,6 +306,23 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
         // 函数的定义
         if(strcmp(cur->sibling->name, "CompSt") == 0) {
             // TODO:重复定义检查
+            struct FunctionTable* ft = functablehead;
+            for(; ft != NULL; ft = ft->next) {
+                if(strcmp(ft->func->name, nfunctype->name) == 0) {
+                    if(ft->state == 0) {
+                        // TODO：比较参数表是否相同，相同则将state改为1,否则报错
+
+                        find_vartable(cur->sibling, cur, NULL, NULL, 0);
+                        return;
+                    }
+                    // 已定义过，报错
+                    else {
+                        printf("\033[;31mError type 4 at Line %d: Redefined function \"%s\".\033[0m\n", cur->situation[0], nfunctype->name);
+                        find_vartable(cur->sibling, cur, NULL, NULL, 0);
+                        return;
+                    }
+                }
+            }
 
             struct FunctionTable* nfunctable = create_functiontable();
             nfunctable->func = nfunctype;
@@ -343,6 +359,40 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
         find_vartable(cur->child, cur, type, arr, arrdepth);
         find_vartable(cur->sibling, father, type, arr, arrdepth);
     }
+}
+
+void check_error(struct TreeNode* cur, struct TreeNode* father) {
+    // ----空结点的跳过处理----
+    if(cur == NULL || cur->ttype == EMPTY)
+        return;
+
+    // ----遍历到特定结点时，执行操作----
+    // ----检查未定义就使用的变量----
+    if(strcmp(cur->name, "ID") == 0 && strcmp(father->name, "Exp") == 0 && cur->sibling == NULL) {
+        struct Type* vartype = search_vartable(cur->val.strvalue);
+        if(vartype == NULL) {
+            printf("\033[;31mError type 1 at Line %d: Undefined variable \"%s\".\033[0m\n", cur->situation[0], cur->val.strvalue);
+        }
+    }
+    else if(strcmp(cur->name, "Args") == 0 && strcmp(father->name, "Exp") == 0) {
+        struct FunctionType* functype = search_functable(father->child->val.strvalue);
+        if(functype == NULL) {
+            printf("\033[;31mError type 2 at Line %d: Undefined function \"%s\".\033[0m\n", father->situation[0], father->child->val.strvalue);
+        }
+    }
+    else if(strcmp(cur->name, "ASSIGNOP") == 0 && strcmp(father->name, "Exp") == 0) {
+        struct Type* type1 = get_exp_type(father->child);
+        struct Type* type2 = get_exp_type(cur->sibling);
+        if(type1 == NULL || type2 == NULL || match_variate(type1, type2) == 0) {
+            printf("\033[;31mError type 5 at Line %d: Type mismatched for assignment.\033[0m\n", cur->situation[0]);
+        }
+        if(type1 != NULL && type1->constant == 1) {
+            // constant为1表示这不是个变量，而是一个常量
+            printf("\033[;31mError type 6 at Line %d: The left-hand side of an assignment must be a variable.\033[0m\n", cur->situation[0]);
+        }
+    }
+    check_error(cur->child, cur);
+    check_error(cur->sibling, father);
 }
 
 int check_varconflict(char* varname) {
@@ -425,6 +475,115 @@ struct FieldList* get_fieldlist(char* struname) {
     return (fst->structure);
 }
 
+// TODO：查找符号表，若找到返回对应的类型，否则返回NULL
+struct Type* search_vartable(char* varname) {
+    struct VarTable* vt = vartablehead;
+    for(; vt != NULL; vt = vt->next) {
+        if(strcmp(vt->name, varname) == 0)
+            return &(vt->vartype);
+    }
+    return NULL;
+}
+// TODO:查找结构体表，若找到返回1
+int search_strutable(char* struname) {
+
+}
+// TODO：查找函数表，若找到返回对应的函数类型信息，找不到返回NULL
+struct FunctionType* search_functable(char* funcname) {
+    struct FunctionTable* ft = functablehead;
+    for(; ft != NULL; ft = ft->next) {
+        if((strcmp(ft->func->name, funcname) == 0) && (ft->state == 1)) {
+            return ft->func;
+        }
+    }
+    return NULL;
+}
+
+// 返回Exp节点的属性Type
+struct Type* get_exp_type(struct TreeNode* exp) {
+    while(1) {
+        if(strcmp(exp->child->name, "ID") == 0) {
+            return search_vartable(exp->child->val.strvalue);
+        }
+        else if(strcmp(exp->child->name, "INT") == 0){
+            struct Type* tempint = create_type();
+            tempint->kind = BASIC;
+            tempint->u.basic = 1;
+            tempint->constant = 1;
+            return tempint;
+        }
+        else if(strcmp(exp->child->name, "FLOAT") == 0){
+            struct Type* tempfloat = create_type();
+            tempfloat->kind = BASIC;
+            tempfloat->u.basic = 2;
+            tempfloat->constant = 1;
+            return tempfloat;
+        }
+        else if(strcmp(exp->child->name, "LP") == 0)
+            exp = exp->child->sibling;
+        else if(strcmp(exp->child->name, "MINUS") == 0)
+            exp = exp->child->sibling;
+        else if(strcmp(exp->child->name, "NOT") == 0)
+            exp = exp->child->sibling;
+        else if(strcmp(exp->child->name, "ID") == 0 && strcmp(exp->child->sibling->name, "LP") == 0) {
+            struct FunctionType* ft = search_functable(exp->child->val.strvalue);
+            if(ft == NULL)
+                return NULL;
+            else
+                return &(ft->rt_value);
+        }
+        else if(strcmp(exp->child->name, "Exp") == 0 && strcmp(exp->child->sibling->name, "LB") == 0)
+            // TODO:处理数组情况
+            assert(0);
+        else if(strcmp(exp->child->name, "Exp") == 0 && strcmp(exp->child->sibling->name, "DOT") == 0)
+            // TODO:处理结构体情况
+            assert(0);             
+        else if(strcmp(exp->child->name, "Exp") == 0)
+            // 一系列乱七八糟的推导
+            exp = exp->child;
+    }
+}
+
+// ----模式匹配检查函数----
+// 检查两个操作数类型是否匹配
+int match_variate(struct Type* type1, struct Type* type2) {
+    if(type1->kind == type2->kind) {
+        if(type1->kind == BASIC) {
+            if(type1->u.basic == type2->u.basic)
+                return 1;
+        }
+        else if(type1->kind == ARRAY) {
+            while(type1->kind != BASIC) {
+                if(type1->u.array.size == type2->u.array.size) {
+                    type1 = type1->u.array.elem;
+                    type2 = type2->u.array.elem;
+                }
+                else
+                    return 0;
+            }
+            return match_variate(type1, type2);
+        }
+        else if(type1->kind == STRUCTURE) {
+            struct FieldList* fl1 = type1->u.structure;
+            struct FieldList* fl2 = type2->u.structure;
+            while(fl1 != NULL && fl2 != NULL) {
+                if(match_variate(&fl1->type, &fl2->type) == 0) {
+                    return 0;
+                }
+                fl1 = fl1->next; fl2 = fl2->next;
+            }
+            if(fl1 == NULL && fl2 != NULL || fl1 != NULL && fl2 == NULL)
+                return 0;
+            return 1;
+        }
+    }
+    return 0;
+}
+// 检查两个参数表是否匹配
+int match_parameter(struct VarTable* vt1, struct VarTable* vt2) {
+
+}
+
 void print_vartable() {
     struct VarTable* vt = vartablehead;
     printf("\033[;33mVariate Table:\nName\t\tKind\t\tContent\033[0m\n");
@@ -485,6 +644,7 @@ void print_type(struct Type* head) {
     else
         assert(0);
 }
+
 void print_strutable() {
     printf("\033[;33mStructure Table:\nName\t\tField\033[0m\n");
     struct StructTable* st = strutablehead;

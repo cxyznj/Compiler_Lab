@@ -19,6 +19,7 @@ struct Type {
         // 结构体信息（链表形式）
         struct FieldList* structure;
     } u;
+    int constant;
 };
 
 // 结构体专用的域表
@@ -71,6 +72,7 @@ struct FunctionTable {
     struct FunctionTable* next;
 };
 
+// ----一些变量----
 // 变量符号表
 struct VarTable* vartablehead;
 // 结构体表
@@ -80,12 +82,15 @@ int emptyname;
 // 函数符号表
 struct FunctionTable* functablehead;
 
+// ----全局函数----
 // 初始化符号表（给符号表的头项分配空间）
 int init_table();
-// 构建变量符号表
+// 构建符号表
 void build_vartable(struct TreeNode* tn);
-// 构建函数符号表
-void build_functable(struct TreeNode* tn);
+// 检查程序中的语义错误
+void check_program(struct TreeNode* tn);
+
+// ----安全malloc辅助函数----
 // 安全地新建一个结构体项
 struct Type* create_type();
 struct FieldList* create_fieldlist();
@@ -94,14 +99,37 @@ struct VarTable* create_vartable();
 struct FunctionType* create_functiontype();
 struct FunctionTable* create_functiontable();
 
+// ----遍历----
 // 为vartable实现的树的遍历
 void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, int* arr, int arrdepth);
-// 检查符号表中是否有重复定义
-int check_varconflict(char* varname);
+// 为check_program实现的树的遍历
+void check_error(struct TreeNode* cur, struct TreeNode* father);
+
+// ----功能辅助函数----
 // 处理结构体中的一条DecList
 void add_onedeclist(char* type_name, struct FieldList** starfl, struct TreeNode* declist);
+// 检查符号表中是否有重复定义
+int check_varconflict(char* varname);
+
+// ----查找函数----
 // 返回对应名struct类型的域
 struct FieldList* get_fieldlist(char* struname);
+// 查找符号表，若找到返回对应的类型，否则返回NULL
+struct Type* search_vartable(char* varname);
+// 查找结构体表，若找到返回1
+int search_strutable(char* struname);
+// 查找函数表，若找到返回对应的函数类型信息，找不到返回NULL
+struct FunctionType* search_functable(char* funcname);
+// 返回Exp节点的属性Type
+struct Type* get_exp_type(struct TreeNode* exp);
+
+// ----模式匹配检查函数----
+// 检查两个操作数类型是否匹配
+int match_variate(struct Type* type1, struct Type* type2);
+// 检查两个参数表是否匹配
+int match_parameter(struct VarTable* vt1, struct VarTable* vt2);
+
+// ----打印表格函数
 // 打印符号表
 void print_vartable();
 // 打印类型体
