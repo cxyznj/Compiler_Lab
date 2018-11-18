@@ -382,6 +382,7 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
             printf("\033[;31mError type 1 at Line %d: Undefined variable \"%s\".\033[0m\n", cur->situation[0], cur->val.strvalue);
         }
     }
+    // ----检查函数的引用发生的一系列的问题----
     else if(strcmp(cur->name, "ID") == 0 && strcmp(father->name, "Exp") == 0 && cur->sibling != NULL) {
         struct FunctionType* functype = search_functable(father->child->val.strvalue);
         if(functype == NULL) {
@@ -493,6 +494,23 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
         if(functype != NULL) {
             struct Type* rttype = &(functype->rt_value);
             find_return_in_stmtlist(stmtlist, rttype);
+        }
+    }
+    else if(strcmp(cur->name, "LB") == 0 && strcmp(father->name, "Exp") == 0) {
+        // Exp ::= Exp LB Exp RB
+        if(get_exp_type(father->child)->kind != ARRAY) {
+            printf("\033[;31mError type 10 at Line %d: \"", cur->situation[0]);
+            print_exp(father->child);
+            printf("\" is not an array.\033[0m\n");
+        }
+        struct Type* fval = get_exp_type(father->child->sibling->sibling);
+        if(fval->kind == BASIC && fval->u.basic == 1) 
+            // do nothing
+            ;
+        else {
+            printf("\033[;31mError type 12 at Line %d: \"", cur->situation[0]);
+            print_exp(father->child->sibling->sibling);
+            printf("\" is not an integer.\033[0m\n");
         }
     }
     check_error(cur->child, cur);
@@ -646,9 +664,12 @@ struct Type* get_exp_type(struct TreeNode* exp) {
             else
                 return &(ft->rt_value);
         }
-        else if(strcmp(exp->child->name, "Exp") == 0 && strcmp(exp->child->sibling->name, "LB") == 0)
-            // TODO:处理数组情况
-            assert(0);
+        else if(strcmp(exp->child->name, "Exp") == 0 && strcmp(exp->child->sibling->name, "LB") == 0){
+            // 处理数组情况
+            struct Type* arrexp = get_exp_type(exp->child);
+            assert(arrexp->kind == ARRAY);
+            return arrexp->u.array.elem;
+        }
         else if(strcmp(exp->child->name, "Exp") == 0 && strcmp(exp->child->sibling->name, "DOT") == 0)
             // TODO:处理结构体情况
             assert(0);             
@@ -868,5 +889,82 @@ void print_functable() {
             }
         }
         printf("\n");
+    }
+}
+
+// 打印一个exp
+void print_exp(struct TreeNode* exp) {
+    if(strcmp(exp->child->name, "ID") == 0) {
+        printf("%s", exp->child->val.strvalue);
+    }
+    else if(strcmp(exp->child->name, "INT") == 0) {
+        printf("%d", exp->child->val.intvalue);
+    }
+    else if(strcmp(exp->child->name, "FLOAT") == 0) {
+        printf("%f", exp->child->val.floatvalue);
+    }    
+    else if(strcmp(exp->child->sibling->name, "ASSIGNOP") == 0) {
+        print_exp(exp->child);
+        printf(" = ");
+        print_exp(exp->child->sibling->sibling);
+    }
+    else if(strcmp(exp->child->sibling->name, "AND") == 0) {
+        print_exp(exp->child);
+        printf(" && ");
+        print_exp(exp->child->sibling->sibling);
+    }
+    else if(strcmp(exp->child->sibling->name, "OR") == 0) {
+        print_exp(exp->child);
+        printf(" || ");
+        print_exp(exp->child->sibling->sibling);
+    }
+    else if(strcmp(exp->child->sibling->name, "RELOP") == 0) {
+        print_exp(exp->child);
+        printf(" RELOP ");
+        print_exp(exp->child->sibling->sibling);
+    }
+    else if(strcmp(exp->child->sibling->name, "PLUS") == 0) {
+        print_exp(exp->child);
+        printf(" + ");
+        print_exp(exp->child->sibling->sibling);
+    }
+    else if(strcmp(exp->child->sibling->name, "MINUS") == 0) {
+        print_exp(exp->child);
+        printf(" - ");
+        print_exp(exp->child->sibling->sibling);
+    }
+    else if(strcmp(exp->child->sibling->name, "STAR") == 0) {
+        print_exp(exp->child);
+        printf(" * ");
+        print_exp(exp->child->sibling->sibling);
+    }
+    else if(strcmp(exp->child->sibling->name, "DIV") == 0) {
+        print_exp(exp->child);
+        printf(" / ");
+        print_exp(exp->child->sibling->sibling);
+    }
+    else if(strcmp(exp->child->name, "LP") == 0) {
+        printf("(");
+        print_exp(exp->child->sibling);
+        printf(")");
+    }
+    else if(strcmp(exp->child->name, "MINUS") == 0) {
+        printf("-");
+        print_exp(exp->child->sibling);
+    }
+    else if(strcmp(exp->child->name, "NOT") == 0) {
+        printf("!");
+        print_exp(exp->child->sibling);
+    }
+    else if(strcmp(exp->child->sibling->name, "LB") == 0) {
+        print_exp(exp->child);
+        printf("[");
+        print_exp(exp->child->sibling->sibling);
+        printf("]");
+    }
+    else if(strcmp(exp->child->sibling->name, "DOT") == 0) {
+        print_exp(exp->child);
+        printf(".");
+        printf("%s", exp->child->sibling->sibling->val.strvalue);
     }
 }

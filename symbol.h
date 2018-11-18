@@ -142,5 +142,7 @@ void print_type(struct Type* head);
 void print_strutable();
 // 打印函数表
 void print_functable();
+// 打印一个exp
+void print_exp(struct TreeNode* exp);
 
 #endif
