@@ -20,6 +20,17 @@ void build_vartable(struct TreeNode* tn) {
 
 void check_program(struct TreeNode* tn) {
     check_error(tn, NULL);
+    check_function();
+}
+
+// 检查是否有已声明但未定义的函数
+void check_function() {
+    struct FunctionTable* ft = functablehead;
+    for(; ft != NULL; ft = ft->next) {
+        if(ft->state == 0) {
+            printf("\033[;31mError type 18 at Line %d: Undefined function \"%s\".\033[0m\n", ft->row, ft->func->name);
+        }
+    }
 }
 
 // 安全地新建一个结构体项
@@ -98,7 +109,16 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 emptyname++;
             }
 
-            // TODO: 检查是否有重名结构体
+            // 检查是否有重名结构体
+            struct StructTable* fst = strutablehead;
+            for(; fst != NULL; fst = fst->next) {
+                if(strcmp(fst->name, struname) == 0) {
+                    // 出现重名
+                    printf("\033[;31mError type 16 at Line %d: Duplicated name \"%s\".\033[0m\n", cur->situation[0], struname);
+                    find_vartable(cur->sibling, cur, struname, arr, arrdepth);
+                    return;
+                }
+            }
 
             // 将这个结构体放入结构体表中
             // TODO:默认结构体没有嵌套
@@ -118,6 +138,20 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
             }
             nst->structure = fl;
             // TODO:检查结构体中是否有重名的域
+            int cstflag = 0;
+            struct FieldList* cst = nst->structure;
+            for(; cst != NULL; cst = cst->next) {
+                if(check_struconflict(cst->name, cst->next) == 1) {
+                    printf("\033[;31mError type 15 at Line %d: Redefined field \"%s\".\033[0m\n", cur->situation[0], cst->name);
+                    cstflag = 1;
+                }
+            }
+            // 如果有重名，则这个结构体不放入结构体表
+            if(cstflag == 1) {
+                find_vartable(cur->sibling, cur, struname, arr, arrdepth);
+                return;
+            }
+
             printf("Add a new struct: %s\n", struname);
             if(strutablehead == NULL)
                 strutablehead = nst;
@@ -201,7 +235,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 assert(fst != NULL);
                 
                 nvartable->vartype.u.structure = fst->structure;*/
-                nvartable->vartype.u.structure = get_fieldlist(type);
+                nvartable->vartype.u.structure = get_fieldlist(type, cur->situation[0]);
             }
             // 给符号表添加一个新项（放在链尾）
             if(vartablehead == NULL) {
@@ -239,7 +273,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
         else {
             // struct类型
             nfunctype->rt_value.kind = STRUCTURE;
-            nfunctype->rt_value.u.structure = get_fieldlist(type);
+            nfunctype->rt_value.u.structure = get_fieldlist(type, cur->situation[0]);
         }
         // ----函数的参数表----
         // FunDec ::= ID LP VarList RP
@@ -277,7 +311,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 }
                 else {
                     npt->vartype.kind = STRUCTURE;
-                    npt->vartype.u.structure = get_fieldlist(paramtype);
+                    npt->vartype.u.structure = get_fieldlist(paramtype, cur->situation[0]);
                 }
                 // 将新的参数添加到参数表中
                 if(paramtable == NULL)
@@ -310,10 +344,17 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
             for(; ft != NULL; ft = ft->next) {
                 if(strcmp(ft->func->name, nfunctype->name) == 0) {
                     if(ft->state == 0) {
-                        // TODO：比较参数表是否相同，相同则将state改为1,否则报错
-
-                        find_vartable(cur->sibling, cur, NULL, NULL, 0);
-                        return;
+                        // 比较参数表是否相同，相同则将state改为1,否则报错
+                        // 参数表相同
+                        if(match_parameter(nfunctype->paratable, ft->func->paratable) == 1) {
+                            ft->state = 1;
+                            find_vartable(cur->sibling, cur, NULL, NULL, 0);
+                            return;
+                        }
+                        // 参数表不同
+                        else {
+                            printf("\033[;31mError type 4 at Line %d: Redefined function \"%s\".\033[0m\n", cur->situation[0], nfunctype->name);
+                        }
                     }
                     // 已定义过，报错
                     else {
@@ -327,6 +368,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
             struct FunctionTable* nfunctable = create_functiontable();
             nfunctable->func = nfunctype;
             nfunctable->state = 1;
+            nfunctable->row = cur->situation[0];
             if(functablehead == NULL) {
                 functablehead = nfunctable;
             }
@@ -339,11 +381,21 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
         }
         // 函数的声明
         else {
-            // TODO:重复声明检查
-
+            // 重复声明检查
+            struct FunctionTable* ft = functablehead;
+            for(; ft != NULL; ft = ft->next) {
+                if(strcmp(ft->func->name, nfunctype->name) == 0) {
+                    if(match_parameter(nfunctype->paratable, ft->func->paratable) != 1) {
+                        printf("\033[;31mError type 19 at Line %d: Inconsistent declaration of function \"%s\".\033[0m\n", cur->situation[0], nfunctype->name);
+                        find_vartable(cur->sibling, cur, NULL, NULL, 0);
+                        return;
+                    }
+                }
+            }
             struct FunctionTable* nfunctable = create_functiontable();
             nfunctable->func = nfunctype;
             nfunctable->state = 0;
+            nfunctable->row = cur->situation[0];
             if(functablehead == NULL) {
                 functablehead = nfunctable;
             }
@@ -534,6 +586,17 @@ int check_varconflict(char* varname) {
     return 0;
 }
 
+// 检查结构体中是否有重名的域
+int check_struconflict(char* varname, struct FieldList* fl) {
+    struct FieldList* ffl = fl;
+    while(ffl != NULL) {
+        if(strcmp(ffl->name, varname) == 0)
+            return 1;
+        ffl = ffl->next;
+    }
+    return 0;
+}
+
 void add_onedeclist(char* type_name, struct FieldList** starfl, struct TreeNode* declist) {
     while(1) {
         struct TreeNode* vardec = declist->child->child;
@@ -595,12 +658,16 @@ void add_onedeclist(char* type_name, struct FieldList** starfl, struct TreeNode*
     }
 }
 
-struct FieldList* get_fieldlist(char* struname) {
+struct FieldList* get_fieldlist(char* struname, int rownum) {
     struct StructTable* fst = strutablehead;
     // 在符号表中找到名为struname的struct项，然后将FieldList复制进来
     while(fst != NULL && strcmp(fst->name, struname) != 0) fst = fst->next;
     // TODO:处理找不到结构体定义的情况
-    assert(fst != NULL);
+    //assert(fst != NULL);
+    if(fst == NULL) {
+        printf("\033[;31mError type 17 at Line %d: Undefined structure \"%s\".\033[0m\n", rownum, struname);
+        return NULL;
+    }
     return (fst->structure);
 }
 

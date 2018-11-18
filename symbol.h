@@ -68,6 +68,8 @@ struct FunctionTable {
     struct FunctionType* func;
     // 当前函数是否有定义的标识，state = 1表示有定义，0表示还没有定义
     int state;
+    // 标识函数定义或声明（定义前）的行号
+    int row;
     // 函数表下一项的指针
     struct FunctionTable* next;
 };
@@ -89,6 +91,8 @@ int init_table();
 void build_vartable(struct TreeNode* tn);
 // 检查程序中的语义错误
 void check_program(struct TreeNode* tn);
+// 检查是否有已声明但未定义的函数
+void check_function();
 
 // ----安全malloc辅助函数----
 // 安全地新建一个结构体项
@@ -110,10 +114,12 @@ void check_error(struct TreeNode* cur, struct TreeNode* father);
 void add_onedeclist(char* type_name, struct FieldList** starfl, struct TreeNode* declist);
 // 检查符号表中是否有重复定义
 int check_varconflict(char* varname);
+// 检查结构体中是否有重名的域
+int check_struconflict(char* varname, struct FieldList* fl);
 
 // ----查找函数----
 // 返回对应名struct类型的域
-struct FieldList* get_fieldlist(char* struname);
+struct FieldList* get_fieldlist(char* struname, int rownum);
 // 查找符号表，若找到返回对应的类型，否则返回NULL
 struct Type* search_vartable(char* varname);
 // 查找结构体表，若找到返回1
