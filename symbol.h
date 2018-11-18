@@ -122,6 +122,10 @@ int search_strutable(char* struname);
 struct FunctionType* search_functable(char* funcname);
 // 返回Exp节点的属性Type
 struct Type* get_exp_type(struct TreeNode* exp);
+// 在一个stmtlist中查找return语句，判断return的返回值是否与rttype相等，否则报错
+void find_return_in_stmtlist(struct TreeNode* stmtlist, struct Type* rttype);
+// 在一个stmt中查找return语句，判断return的返回值是否与rttype相等，否则报错
+void find_return_in_stmt(struct TreeNode* stmt, struct Type* rttype);
 
 // ----模式匹配检查函数----
 // 检查两个操作数类型是否匹配

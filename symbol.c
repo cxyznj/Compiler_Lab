@@ -367,8 +367,12 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
         return;
 
     // ----遍历到特定结点时，执行操作----
+    if(father == NULL){
+        // do nothing
+        assert(strcmp(cur->name, "Program") == 0);
+    }
     // ----检查未定义就使用的变量----
-    if(strcmp(cur->name, "ID") == 0 && strcmp(father->name, "Exp") == 0 && cur->sibling == NULL) {
+    else if(strcmp(cur->name, "ID") == 0 && strcmp(father->name, "Exp") == 0 && cur->sibling == NULL) {
         struct Type* vartype = search_vartable(cur->val.strvalue);
         if(vartype == NULL) {
             printf("\033[;31mError type 1 at Line %d: Undefined variable \"%s\".\033[0m\n", cur->situation[0], cur->val.strvalue);
@@ -389,6 +393,30 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
         if(type1 != NULL && type1->constant == 1) {
             // constant为1表示这不是个变量，而是一个常量
             printf("\033[;31mError type 6 at Line %d: The left-hand side of an assignment must be a variable.\033[0m\n", cur->situation[0]);
+        }
+    }
+    else if(strcmp(father->name, "Exp") == 0 \
+            && (strcmp(cur->name, "AND") == 0 \
+                || strcmp(cur->name, "OR") == 0 \
+                || strcmp(cur->name, "RELOP") == 0 \
+                || strcmp(cur->name, "PLUS") == 0 \
+                || strcmp(cur->name, "MINUS") == 0 \
+                || strcmp(cur->name, "STAR") == 0 \
+                || strcmp(cur->name, "DIV") == 0 \
+                )) {
+        struct Type* type1 = get_exp_type(father->child);
+        struct Type* type2 = get_exp_type(cur->sibling);
+        if(type1 == NULL || type2 == NULL || match_variate(type1, type2) == 0) {
+            printf("\033[;31mError type 7 at Line %d: Type mismatched for operands.\033[0m\n", cur->situation[0]);
+        }
+    }
+    else if(strcmp(cur->name, "CompSt") == 0 && strcmp(father->name, "ExtDef") == 0) {
+        // ExtDef ::= Specifier FunDec CompSt
+        struct TreeNode* stmtlist = cur->child->sibling->sibling;
+        struct FunctionType* functype = search_functable(father->child->sibling->child->val.strvalue);
+        if(functype != NULL) {
+            struct Type* rttype = &(functype->rt_value);
+            find_return_in_stmtlist(stmtlist, rttype);
         }
     }
     check_error(cur->child, cur);
@@ -503,7 +531,17 @@ struct FunctionType* search_functable(char* funcname) {
 struct Type* get_exp_type(struct TreeNode* exp) {
     while(1) {
         if(strcmp(exp->child->name, "ID") == 0) {
-            return search_vartable(exp->child->val.strvalue);
+            if(exp->child->sibling == NULL)
+                // Exp ::= ID 变量引用
+                return search_vartable(exp->child->val.strvalue);
+            else {
+                // Exp ::= ID LP Args RP | ID LP RP 函数引用
+                struct FunctionType* ft = search_functable(exp->child->val.strvalue);
+                if(ft == NULL)
+                    return NULL;
+                else
+                    return &(ft->rt_value);
+            }
         }
         else if(strcmp(exp->child->name, "INT") == 0){
             struct Type* tempint = create_type();
@@ -544,9 +582,48 @@ struct Type* get_exp_type(struct TreeNode* exp) {
     }
 }
 
+// 在一个stmtlist中查找return语句，判断return的返回值是否与rttype相等，否则报错
+void find_return_in_stmtlist(struct TreeNode* stmtlist, struct Type* rttype) {
+    for(; stmtlist->ttype != EMPTY; stmtlist = stmtlist->child->sibling) {
+        struct TreeNode* stmt = stmtlist->child;
+        // 查找所有stmt语句
+        find_return_in_stmt(stmt, rttype);
+    }
+}
+
+// 在一个stmt中查找return语句，判断return的返回值是否与rttype相等，否则报错
+void find_return_in_stmt(struct TreeNode* stmt, struct Type* rttype) {
+    if(strcmp(stmt->child->name, "CompSt") == 0) {
+            find_return_in_stmtlist(stmt->child->child->sibling->sibling, rttype);
+    }
+    else if(strcmp(stmt->child->name, "RETURN") == 0) {
+        struct Type* curtype = get_exp_type(stmt->child->sibling);
+        if(match_variate(rttype, curtype) == 0) {
+            printf("\033[;31mError type 8 at Line %d: Type mismatched for return.\033[0m\n", stmt->situation[0]);
+        }
+    }
+    else if(strcmp(stmt->child->name, "IF") == 0) {
+        if(stmt->child->sibling->sibling->sibling->sibling->sibling == NULL)
+            // Stmt ::= IF LP Exp RP Stmt
+            find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling, rttype);
+        else {
+            // Stmt ::= IF LP Exp RP Stmt ELSE Stmt
+            find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling, rttype);
+            find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling->sibling->sibling, rttype);
+        }
+    }
+    else if(strcmp(stmt->child->name, "WHILE") == 0) {
+        // Stmt ::= WHILE LP Exp RP Stmt
+        find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling, rttype);
+    }
+}
+
 // ----模式匹配检查函数----
 // 检查两个操作数类型是否匹配
 int match_variate(struct Type* type1, struct Type* type2) {
+    if(type1 == NULL || type2 == NULL) {
+        return 0;
+    }
     if(type1->kind == type2->kind) {
         if(type1->kind == BASIC) {
             if(type1->u.basic == type2->u.basic)
