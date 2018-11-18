@@ -65,7 +65,7 @@ struct FunctionTable* create_functiontable() {
 
 void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, int* arr, int arrdepth){
     // ----空结点的跳过处理----
-    if(cur == NULL || cur->ttype == EMPTY)
+    if(cur == NULL)
         return;
 
     // ----错误检查----
@@ -363,8 +363,12 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
 
 void check_error(struct TreeNode* cur, struct TreeNode* father) {
     // ----空结点的跳过处理----
-    if(cur == NULL || cur->ttype == EMPTY)
+    if(cur == NULL)
         return;
+
+    // if(cur != NULL && father != NULL) {
+    //    printf("cur = %s, father = %s\n", cur->name, father->name);
+    //}
 
     // ----遍历到特定结点时，执行操作----
     if(father == NULL){
@@ -372,16 +376,84 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
         assert(strcmp(cur->name, "Program") == 0);
     }
     // ----检查未定义就使用的变量----
-    else if(strcmp(cur->name, "ID") == 0 && strcmp(father->name, "Exp") == 0 && cur->sibling == NULL) {
+    else if(strcmp(cur->name, "ID") == 0 && strcmp(father->name, "Exp") == 0 && cur->sibling == NULL && strcmp(father->child->name, "Exp") != 0) {
         struct Type* vartype = search_vartable(cur->val.strvalue);
         if(vartype == NULL) {
             printf("\033[;31mError type 1 at Line %d: Undefined variable \"%s\".\033[0m\n", cur->situation[0], cur->val.strvalue);
         }
     }
-    else if(strcmp(cur->name, "Args") == 0 && strcmp(father->name, "Exp") == 0) {
+    else if(strcmp(cur->name, "ID") == 0 && strcmp(father->name, "Exp") == 0 && cur->sibling != NULL) {
         struct FunctionType* functype = search_functable(father->child->val.strvalue);
         if(functype == NULL) {
             printf("\033[;31mError type 2 at Line %d: Undefined function \"%s\".\033[0m\n", father->situation[0], father->child->val.strvalue);
+        }
+        else {
+            char* fname = father->child->val.strvalue;
+            // 获取这个函数应有的参数表
+            struct VarTable* vt = functype->paratable;
+            struct Type* rtvalue = &(functype->rt_value);
+            char* rttype = malloc(sizeof(char) * 50);
+            if(rtvalue->kind == BASIC) {
+                if(rtvalue->u.basic == 1)
+                    strcpy(rttype, "int");
+                else
+                    strcpy(rttype, "float");
+            }
+            else if(rtvalue->kind == STRUCTURE) {
+                strcpy(rttype, "structure");
+            }
+            else {
+                // 返回值不能是数组类型
+                assert(0);
+            }
+
+            if(strcmp(cur->sibling->sibling->name, "RP") == 0) {
+                // Exp ::= ID LP RP
+                if(vt != NULL) {
+                    printf("\033[;31mError type 9 at Line %d: Function \"%s(%s)\" is not applicable for arguments \"()\".\033[0m\n", cur->situation[0], fname, rttype);
+                }
+            }
+            else {
+                // Exp ::= ID LP Args RP
+                struct TreeNode* args = cur->sibling->sibling;
+                struct VarTable* vthead = NULL;
+                while(1) {
+                    struct VarTable* nvt = create_vartable();
+                    nvt->vartype = *(get_exp_type(args->child));
+
+                    if(vthead == NULL)
+                        vthead = nvt;
+                    else {
+                        struct VarTable* fvt = vthead;
+                        while(fvt->next != NULL) fvt = fvt->next;
+                        fvt->next = nvt;
+                    }
+
+                    if(args->child->sibling == NULL)
+                        break;
+                    else
+                        args = args->child->sibling->sibling;
+                }
+                if(match_parameter(vt, vthead) == 0) {
+                    printf("\033[;31mError type 9 at Line %d: Function \"%s(%s)\" is not applicable for arguments \"(", cur->situation[0], fname, rttype);
+                    struct VarTable* fvt = vthead;
+                    for(; fvt != NULL; fvt = fvt->next) {
+                        if(fvt->vartype.kind == BASIC) {
+                            if(fvt->vartype.u.basic == 1)
+                                printf("int");
+                            else
+                                printf("float");
+                        }
+                        else if(fvt->vartype.kind == ARRAY)
+                            printf("array");
+                        else
+                            printf("structure");
+                        if(fvt->next != NULL)
+                            printf(", ");
+                    }
+                    printf(")\".\033[0m\n");
+                }
+            }
         }
     }
     else if(strcmp(cur->name, "ASSIGNOP") == 0 && strcmp(father->name, "Exp") == 0) {
@@ -658,7 +730,17 @@ int match_variate(struct Type* type1, struct Type* type2) {
 }
 // 检查两个参数表是否匹配
 int match_parameter(struct VarTable* vt1, struct VarTable* vt2) {
-
+    if(vt1== NULL || vt2 == NULL)
+        return 0;
+    while(vt1 != NULL && vt2 != NULL) {
+        if(match_variate(&vt1->vartype, &vt2->vartype) == 0)
+            return 0;
+        vt1 = vt1->next;
+        vt2 = vt2->next;
+    }
+    if((vt1 == NULL && vt2 != NULL) || (vt1 != NULL && vt2 == NULL))
+        return 0;
+    return 1;
 }
 
 void print_vartable() {
