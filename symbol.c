@@ -385,7 +385,11 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
     else if(strcmp(cur->name, "ID") == 0 && strcmp(father->name, "Exp") == 0 && cur->sibling != NULL) {
         struct FunctionType* functype = search_functable(father->child->val.strvalue);
         if(functype == NULL) {
-            printf("\033[;31mError type 2 at Line %d: Undefined function \"%s\".\033[0m\n", father->situation[0], father->child->val.strvalue);
+            struct Type* vtype = search_vartable(father->child->val.strvalue);
+            if(vtype == NULL)
+                printf("\033[;31mError type 2 at Line %d: Undefined function \"%s\".\033[0m\n", father->situation[0], father->child->val.strvalue);
+            else
+                printf("\033[;31mError type 11 at Line %d: \"%s\" is not a function.\033[0m\n", father->situation[0], father->child->val.strvalue);            
         }
         else {
             char* fname = father->child->val.strvalue;
