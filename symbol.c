@@ -513,6 +513,13 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
             printf("\" is not an integer.\033[0m\n");
         }
     }
+    else if(strcmp(cur->name, "DOT") == 0 && strcmp(father->name, "Exp") == 0) {
+        // Exp ::= Exp DOT ID
+        struct Type* strutype = get_exp_type(father->child);
+        if(strutype == NULL || strutype->kind != STRUCTURE) {
+            printf("\033[;31mError type 13 at Line %d: Illegal use of \".\".\033[0m\n", cur->situation[0]);
+        }
+    }
     check_error(cur->child, cur);
     check_error(cur->sibling, father);
 }
@@ -670,9 +677,28 @@ struct Type* get_exp_type(struct TreeNode* exp) {
             assert(arrexp->kind == ARRAY);
             return arrexp->u.array.elem;
         }
-        else if(strcmp(exp->child->name, "Exp") == 0 && strcmp(exp->child->sibling->name, "DOT") == 0)
-            // TODO:处理结构体情况
-            assert(0);             
+        else if(strcmp(exp->child->name, "Exp") == 0 && strcmp(exp->child->sibling->name, "DOT") == 0) {
+            // TODO:处理结构体情况，写这一段的时候很困，虽然结果是对的，但还是建议再检查
+            struct Type* strutype = get_exp_type(exp->child);
+            if(strutype == NULL)
+                return NULL;
+            assert(strutype->kind == STRUCTURE);
+            struct Type* rttype = NULL;
+            char* fieldname = exp->child->sibling->sibling->val.strvalue;
+            int searchflag = 0;
+            struct FieldList* strufield = strutype->u.structure;
+            for(; strufield != NULL; strufield = strufield->next) {
+                if(strcmp(strufield->name, fieldname) == 0) {
+                    searchflag = 1;
+                    rttype = &(strufield->type);
+                    break;
+                }
+            }
+            if(searchflag == 0) {
+                printf("\033[;31mError type 14 at Line %d: Non-existent field \"%s\".\033[0m\n", exp->child->situation[0], fieldname);
+            }
+            return rttype;
+        }
         else if(strcmp(exp->child->name, "Exp") == 0)
             // 一系列乱七八糟的推导
             exp = exp->child;
