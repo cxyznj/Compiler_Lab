@@ -89,13 +89,13 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
         if(strcmp(cur->child->name, "TYPE") == 0) {
             char* typename = malloc(sizeof(char) * 50);
             strcpy(typename, cur->child->val.strvalue);
-            find_vartable(cur->sibling, cur, typename, arr, arrdepth);
+            find_vartable(cur->sibling, father, typename, arr, arrdepth);
         }
         // 结构体的引用
         else if(strcmp(cur->child->child->sibling->name, "Tag") == 0) {
             char* typename = malloc(sizeof(char) * 50);
             strcpy(typename, cur->child->child->sibling->child->val.strvalue);
-            find_vartable(cur->sibling, cur, typename, arr, arrdepth);
+            find_vartable(cur->sibling, father, typename, arr, arrdepth);
         }
         // 结构体的构造
         else {
@@ -115,7 +115,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 if(strcmp(fst->name, struname) == 0) {
                     // 出现重名
                     printf("\033[;31mError type 16 at Line %d: Duplicated name \"%s\".\033[0m\n", cur->situation[0], struname);
-                    find_vartable(cur->sibling, cur, struname, arr, arrdepth);
+                    find_vartable(cur->sibling, father, struname, arr, arrdepth);
                     return;
                 }
             }
@@ -148,11 +148,11 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
             }
             // 如果有重名，则这个结构体不放入结构体表
             if(cstflag == 1) {
-                find_vartable(cur->sibling, cur, struname, arr, arrdepth);
+                find_vartable(cur->sibling, father, struname, arr, arrdepth);
                 return;
             }
 
-            printf("Add a new struct: %s\n", struname);
+            //printf("Add a new struct: %s\n", struname);
             if(strutablehead == NULL)
                 strutablehead = nst;
             else {
@@ -161,7 +161,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 st->next = nst;
             }
 
-            find_vartable(cur->sibling, cur, struname, arr, arrdepth);
+            find_vartable(cur->sibling, father, struname, arr, arrdepth);
         }
     }
     else if((strcmp(cur->name, "VarDec") == 0) && (strcmp(father->name, "ParamDec") != 0)) {
@@ -229,13 +229,13 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
             // 用户struct的类型
             else {
                 nvartable->vartype.kind = STRUCTURE;
-                /*struct StructTable* fst = strutablehead;
-                // 在符号表中找到名为nvartable的struct项，然后将FieldList复制进来
-                while(fst != NULL && strcmp(fst->name, type) != 0) fst = fst->next;
-                assert(fst != NULL);
-                
-                nvartable->vartype.u.structure = fst->structure;*/
                 nvartable->vartype.u.structure = get_fieldlist(type, cur->situation[0]);
+                /*struct FieldList* varfieldlist = get_fieldlist(type, cur->situation[0]);
+                if(varfieldlist == NULL) {
+                    // 不将这个变量放入变量表
+                    find_vartable(cur->sibling, father, NULL, NULL, 0);
+                    return;
+                }*/
             }
             // 给符号表添加一个新项（放在链尾）
             if(vartablehead == NULL) {
@@ -321,6 +321,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                     while(fpt->next != NULL) fpt = fpt->next;
                     fpt->next = npt;
                 }
+
                 //printf("Add a new param %s(%s)in function:%s\n", paramname, paramtype, nfunctype->name);
 
                 // VarList ::= ParamDec
@@ -341,6 +342,8 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
         if(strcmp(cur->sibling->name, "CompSt") == 0) {
             // TODO:重复定义检查
             struct FunctionTable* ft = functablehead;
+            // 判断该函数是否应该加入到函数表中
+            int add_flag = 1;
             for(; ft != NULL; ft = ft->next) {
                 if(strcmp(ft->func->name, nfunctype->name) == 0) {
                     if(ft->state == 0) {
@@ -348,36 +351,57 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                         // 参数表相同
                         if(match_parameter(nfunctype->paratable, ft->func->paratable) == 1) {
                             ft->state = 1;
-                            find_vartable(cur->sibling, cur, NULL, NULL, 0);
-                            return;
+                            add_flag = 0;
                         }
                         // 参数表不同
                         else {
                             printf("\033[;31mError type 4 at Line %d: Redefined function \"%s\".\033[0m\n", cur->situation[0], nfunctype->name);
+                            find_vartable(cur->sibling, father, NULL, NULL, 0);
+                            return;
                         }
                     }
                     // 已定义过，报错
                     else {
                         printf("\033[;31mError type 4 at Line %d: Redefined function \"%s\".\033[0m\n", cur->situation[0], nfunctype->name);
-                        find_vartable(cur->sibling, cur, NULL, NULL, 0);
+                        find_vartable(cur->sibling, father, NULL, NULL, 0);
                         return;
                     }
                 }
             }
+            struct VarTable* fpt = nfunctype->paratable;
+            for(; fpt != NULL; fpt = fpt->next) {
+                // TODO:由于这里不考虑作用域，所以我们将新的参数添加到符号表中
+                if(vartablehead == NULL) {
+                    vartablehead = create_vartable();
+                    strcpy(vartablehead->name, fpt->name);
+                    vartablehead->vartype = fpt->vartype;
+                    vartablehead->next = NULL;
+                }
+                else {
+                    struct VarTable* fvt = vartablehead;
+                    while(fvt->next != NULL) fvt = fvt->next;
+                    fvt->next = create_vartable();
+                    strcpy(fvt->next->name, fpt->name);
+                    fvt->next->vartype = fpt->vartype;
+                    fvt->next->next = NULL;
+                }
+            }
 
-            struct FunctionTable* nfunctable = create_functiontable();
-            nfunctable->func = nfunctype;
-            nfunctable->state = 1;
-            nfunctable->row = cur->situation[0];
-            if(functablehead == NULL) {
-                functablehead = nfunctable;
+            if(add_flag == 1) {
+                struct FunctionTable* nfunctable = create_functiontable();
+                nfunctable->func = nfunctype;
+                nfunctable->state = 1;
+                nfunctable->row = cur->situation[0];
+                if(functablehead == NULL) {
+                    functablehead = nfunctable;
+                }
+                else {
+                    struct FunctionTable* fft = functablehead;
+                    while(fft->next != NULL) fft = fft->next;
+                    fft->next = nfunctable;
+                }
             }
-            else {
-                struct FunctionTable* fft = functablehead;
-                while(fft->next != NULL) fft = fft->next;
-                fft->next = nfunctable;
-            }
-            find_vartable(cur->sibling, cur, NULL, NULL, 0);
+            find_vartable(cur->sibling, father, NULL, NULL, 0);
         }
         // 函数的声明
         else {
@@ -387,7 +411,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 if(strcmp(ft->func->name, nfunctype->name) == 0) {
                     if(match_parameter(nfunctype->paratable, ft->func->paratable) != 1) {
                         printf("\033[;31mError type 19 at Line %d: Inconsistent declaration of function \"%s\".\033[0m\n", cur->situation[0], nfunctype->name);
-                        find_vartable(cur->sibling, cur, NULL, NULL, 0);
+                        find_vartable(cur->sibling, father, NULL, NULL, 0);
                         return;
                     }
                 }
