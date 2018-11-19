@@ -137,7 +137,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 deflist = def->sibling;
             }
             nst->structure = fl;
-            // TODO:检查结构体中是否有重名的域
+            // 检查结构体中是否有重名的域
             int cstflag = 0;
             struct FieldList* cst = nst->structure;
             for(; cst != NULL; cst = cst->next) {
@@ -232,7 +232,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 nvartable->vartype.u.structure = get_fieldlist(type, cur->situation[0]);
                 /*struct FieldList* varfieldlist = get_fieldlist(type, cur->situation[0]);
                 if(varfieldlist == NULL) {
-                    // 不将这个变量放入变量表
+                    // TODO:不将这个变量放入变量表
                     find_vartable(cur->sibling, father, NULL, NULL, 0);
                     return;
                 }*/
@@ -340,7 +340,7 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
         // ----将该函数加入函数表----
         // 函数的定义
         if(strcmp(cur->sibling->name, "CompSt") == 0) {
-            // TODO:重复定义检查
+            // 重复定义检查
             struct FunctionTable* ft = functablehead;
             // 判断该函数是否应该加入到函数表中
             int add_flag = 1;
@@ -686,7 +686,7 @@ struct FieldList* get_fieldlist(char* struname, int rownum) {
     struct StructTable* fst = strutablehead;
     // 在符号表中找到名为struname的struct项，然后将FieldList复制进来
     while(fst != NULL && strcmp(fst->name, struname) != 0) fst = fst->next;
-    // TODO:处理找不到结构体定义的情况
+    // 处理找不到结构体定义的情况
     //assert(fst != NULL);
     if(fst == NULL) {
         printf("\033[;31mError type 17 at Line %d: Undefined structure \"%s\".\033[0m\n", rownum, struname);
@@ -695,7 +695,7 @@ struct FieldList* get_fieldlist(char* struname, int rownum) {
     return (fst->structure);
 }
 
-// TODO：查找符号表，若找到返回对应的类型，否则返回NULL
+// 查找符号表，若找到返回对应的类型，否则返回NULL
 struct Type* search_vartable(char* varname) {
     struct VarTable* vt = vartablehead;
     for(; vt != NULL; vt = vt->next) {
@@ -704,11 +704,8 @@ struct Type* search_vartable(char* varname) {
     }
     return NULL;
 }
-// TODO:查找结构体表，若找到返回1
-int search_strutable(char* struname) {
 
-}
-// TODO：查找函数表，若找到返回对应的函数类型信息，找不到返回NULL
+// 查找函数表，若找到返回对应的函数类型信息，找不到返回NULL
 struct FunctionType* search_functable(char* funcname) {
     struct FunctionTable* ft = functablehead;
     for(; ft != NULL; ft = ft->next) {
@@ -769,7 +766,7 @@ struct Type* get_exp_type(struct TreeNode* exp) {
             return arrexp->u.array.elem;
         }
         else if(strcmp(exp->child->name, "Exp") == 0 && strcmp(exp->child->sibling->name, "DOT") == 0) {
-            // TODO:处理结构体情况，写这一段的时候很困，虽然结果是对的，但还是建议再检查
+            // 处理结构体情况
             struct Type* strutype = get_exp_type(exp->child);
             if(strutype == NULL)
                 return NULL;

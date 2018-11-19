@@ -122,8 +122,6 @@ int check_struconflict(char* varname, struct FieldList* fl);
 struct FieldList* get_fieldlist(char* struname, int rownum);
 // 查找符号表，若找到返回对应的类型，否则返回NULL
 struct Type* search_vartable(char* varname);
-// 查找结构体表，若找到返回1
-int search_strutable(char* struname);
 // 查找函数表，若找到返回对应的函数类型信息，找不到返回NULL
 struct FunctionType* search_functable(char* funcname);
 // 返回Exp节点的属性Type
