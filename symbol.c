@@ -13,9 +13,9 @@ int init_table() {
 void build_vartable(struct TreeNode* tn) {
     find_vartable(tn, NULL, NULL, NULL, 0);
     // 打印变量表/结构体表及函数表
-    print_vartable();
-    print_strutable();
-    print_functable();
+    //print_vartable();
+    //print_strutable();
+    //print_functable();
 }
 
 void check_program(struct TreeNode* tn) {
@@ -537,6 +537,7 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
             }
         }
     }
+    // ----检查赋值时类型不匹配的问题----
     else if(strcmp(cur->name, "ASSIGNOP") == 0 && strcmp(father->name, "Exp") == 0) {
         struct Type* type1 = get_exp_type(father->child);
         struct Type* type2 = get_exp_type(cur->sibling);
@@ -548,6 +549,7 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
             printf("\033[;31mError type 6 at Line %d: The left-hand side of an assignment must be a variable.\033[0m\n", cur->situation[0]);
         }
     }
+    // ----检查两个变量进行操作时类型不匹配的问题----
     else if(strcmp(father->name, "Exp") == 0 \
             && (strcmp(cur->name, "AND") == 0 \
                 || strcmp(cur->name, "OR") == 0 \
@@ -563,6 +565,7 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
             printf("\033[;31mError type 7 at Line %d: Type mismatched for operands.\033[0m\n", cur->situation[0]);
         }
     }
+    // ----检查函数返回值与return值不匹配的问题
     else if(strcmp(cur->name, "CompSt") == 0 && strcmp(father->name, "ExtDef") == 0) {
         // ExtDef ::= Specifier FunDec CompSt
         struct TreeNode* stmtlist = cur->child->sibling->sibling;
@@ -572,6 +575,7 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
             find_return_in_stmtlist(stmtlist, rttype);
         }
     }
+    // ----检查数组使用时发生的问题----
     else if(strcmp(cur->name, "LB") == 0 && strcmp(father->name, "Exp") == 0) {
         // Exp ::= Exp LB Exp RB
         if(get_exp_type(father->child)->kind != ARRAY) {
@@ -589,6 +593,7 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
             printf("\" is not an integer.\033[0m\n");
         }
     }
+    // ----检查结构体使用时发生的问题----
     else if(strcmp(cur->name, "DOT") == 0 && strcmp(father->name, "Exp") == 0) {
         // Exp ::= Exp DOT ID
         struct Type* strutype = get_exp_type(father->child);
@@ -794,39 +799,53 @@ struct Type* get_exp_type(struct TreeNode* exp) {
 }
 
 // 在一个stmtlist中查找return语句，判断return的返回值是否与rttype相等，否则报错
-void find_return_in_stmtlist(struct TreeNode* stmtlist, struct Type* rttype) {
+int find_return_in_stmtlist(struct TreeNode* stmtlist, struct Type* rttype) {
+    int rtflag = 0;
+    if(stmtlist->ttype == EMPTY) {
+        printf("\033[;31mError type 8 at Line %d: Type mismatched for return.\033[0m\n", stmtlist->situation[0]);
+        return 0;
+    }
     for(; stmtlist->ttype != EMPTY; stmtlist = stmtlist->child->sibling) {
         struct TreeNode* stmt = stmtlist->child;
         // 查找所有stmt语句
-        find_return_in_stmt(stmt, rttype);
+        if(find_return_in_stmt(stmt, rttype) == 1)
+            rtflag = 1;
+        if(stmtlist->child->sibling->ttype == EMPTY){
+            if(rtflag == 0)
+                printf("\033[;31mError type 8 at Line %d: Type mismatched for return.\033[0m\n", stmt->situation[0]);
+        }
     }
+    return rtflag;
 }
 
 // 在一个stmt中查找return语句，判断return的返回值是否与rttype相等，否则报错
-void find_return_in_stmt(struct TreeNode* stmt, struct Type* rttype) {
+int find_return_in_stmt(struct TreeNode* stmt, struct Type* rttype) {
     if(strcmp(stmt->child->name, "CompSt") == 0) {
-            find_return_in_stmtlist(stmt->child->child->sibling->sibling, rttype);
+            return find_return_in_stmtlist(stmt->child->child->sibling->sibling, rttype);
     }
     else if(strcmp(stmt->child->name, "RETURN") == 0) {
         struct Type* curtype = get_exp_type(stmt->child->sibling);
         if(match_variate(rttype, curtype) == 0) {
             printf("\033[;31mError type 8 at Line %d: Type mismatched for return.\033[0m\n", stmt->situation[0]);
         }
+        return 1;
     }
     else if(strcmp(stmt->child->name, "IF") == 0) {
         if(stmt->child->sibling->sibling->sibling->sibling->sibling == NULL)
             // Stmt ::= IF LP Exp RP Stmt
-            find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling, rttype);
+            return find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling, rttype);
         else {
             // Stmt ::= IF LP Exp RP Stmt ELSE Stmt
-            find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling, rttype);
-            find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling->sibling->sibling, rttype);
+            if(find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling, rttype) == 1 ||
+            find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling->sibling->sibling, rttype) == 1)
+                return 1;
         }
     }
     else if(strcmp(stmt->child->name, "WHILE") == 0) {
         // Stmt ::= WHILE LP Exp RP Stmt
-        find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling, rttype);
+        return find_return_in_stmt(stmt->child->sibling->sibling->sibling->sibling, rttype);
     }
+    return 0;
 }
 
 // ----模式匹配检查函数----
@@ -891,6 +910,7 @@ void print_vartable() {
         printf("\n");
         vt = vt->next;
     }
+    printf("\n");
 }
 
 void print_type(struct Type* head) {
@@ -972,6 +992,7 @@ void print_strutable() {
         }
         printf("}\n");
     }
+    printf("\n");
 }
 
 void print_functable() {
@@ -1004,6 +1025,7 @@ void print_functable() {
         }
         printf("\n");
     }
+    printf("\n");
 }
 
 // 打印一个exp
