@@ -447,7 +447,7 @@ void check_error(struct TreeNode* cur, struct TreeNode* father) {
     //}
 
     // ----遍历到特定结点时，执行操作----
-    if(father == NULL){
+    if(father == NULL) {
         // do nothing
         assert(strcmp(cur->name, "Program") == 0);
     }
