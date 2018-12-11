@@ -6,6 +6,22 @@ int init_table() {
     strutablehead = NULL;
     emptyname = 1;
     functablehead = NULL;
+
+    // 预添加read和write两个函数
+    struct FunctionType* func_read = create_functiontype(); struct FunctionType* func_write = create_functiontype();
+    strcpy(func_read->name, "read"); strcpy(func_write->name, "write");
+    func_read->paratable = NULL; func_write->paratable = NULL;
+    struct Type* type = create_type();
+    type->kind = BASIC;
+    type->u.basic = 1;
+    func_read->rt_value = func_write->rt_value = *type;
+    functablehead = create_functiontable();
+    functablehead->func = func_read;
+    functablehead->state = 1;
+    functablehead->next = create_functiontable();
+    functablehead->next->func = func_write;
+    functablehead->next->state = 1;
+
     return 1;
 }
 
@@ -13,9 +29,9 @@ int init_table() {
 void build_vartable(struct TreeNode* tn) {
     find_vartable(tn, NULL, NULL, NULL, 0);
     // 打印变量表/结构体表及函数表
-    //print_vartable();
-    //print_strutable();
-    //print_functable();
+    print_vartable();
+    print_strutable();
+    print_functable();
 }
 
 void check_program(struct TreeNode* tn) {
@@ -70,6 +86,7 @@ struct FunctionTable* create_functiontable() {
     struct FunctionTable* rt = malloc(sizeof(struct FunctionTable));
     rt->func = NULL;
     rt->state = 0;
+    rt->row = 0;
     rt->next = NULL;
     return rt;
 }
