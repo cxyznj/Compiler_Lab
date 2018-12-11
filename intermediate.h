@@ -1,6 +1,6 @@
-#ifndef _INTERMEDIATE_H_
+#ifndef _INTERMEDIATE_H
 
-#define _INTERMEDIATE_H_
+#define _INTERMEDIATE_H
 
 #include "symbol.h"
 #include "datastruct.h"
@@ -9,18 +9,19 @@
 struct Operand {
     enum { VARIABLE, CONSTANT, ADDRESS, TEMP } kind;
     union {
-        struct VarTable* var;
+        char* varname;
         int ivalue;
+        char* addname;
         int tno;
     } u;
 };
 
 struct InterCode {
-    enum { ASSIGN, AND, OR, RELOP, ADD, SUB, MUL, \
-            DIV, MINUS, NOT } kind;
+    enum { MASSIGN, MAND, MOR, MRELOP, MADD, MSUB, MMUL, \
+            MDIV, MMINUS, MNOT } kind;
     union {
-        struct { struct Operand* right; struct Operand* left; } assign;
-        struct { struct Operand* result, op1, op2; } binop;
+        struct { struct Operand* right; struct Operand* left; } pair;
+        struct { struct Operand* result; struct Operand* op1; struct Operand* op2; } binop;
     } u;
     //InterCode(struct Operand* assign_right, struct Operand* assign_left) {
     //    this->kind = ASSIGN;
@@ -34,9 +35,6 @@ struct InterCodes {
     struct InterCodes* pre;
     struct InterCodes* next;
 };
-
-struct InterCodes* codeshead = NULL;
-int tempno = 1;
 
 // 安全创建结构体函数
 struct Operand* create_operand();
@@ -56,7 +54,7 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father);
 struct Operand* new_temp();
 
 // 将一段新的ics插入到codeshead的链表中
-void add_codes(struct InterCodes* ics, struct InterCodes* head);
+void add_codes(struct InterCodes* ics);
 
 // 打印中间代码链表
 void print_intercodes(struct InterCodes* head);
