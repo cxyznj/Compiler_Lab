@@ -2,6 +2,7 @@
 
 struct InterCodes* codeshead = NULL;
 int tempno = 1;
+int templabelno = 1;
 
 // 模块的接口函数
 void generate_intercodes(struct TreeNode* tn) {
@@ -272,6 +273,28 @@ struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_l
     }
 }
 
+struct InterCodes* translate_Param(struct TreeNode* VarList) {
+    assert(strcmp(VarList->child->child->sibling->child->name, "ID") == 0);
+    struct InterCodes* code1 = create_intercodes();
+    code1->code = create_intercode();
+    code1->code->kind = MPARAM;
+    code1->code->u.paramname = malloc(sizeof(char) * 50);
+    strcpy(code1->code->u.paramname, VarList->child->child->sibling->child->val.strvalue);
+    if(VarList->child->sibling == NULL) {
+        // VarList ::= ParamDec
+        // do nothing
+        ;
+    }
+    else {
+        // VarList ::= ParamDec COMMA VarList
+        struct InterCodes* code2;
+        code2 = translate_Param(VarList->child->sibling->sibling);
+        code1->next = code2;
+        code2->pre = code1;
+    }
+    return code1;
+}
+
 // 语法树遍历
 void search_tree(struct TreeNode* cur, struct TreeNode* father) {
     if(cur == NULL)
@@ -294,6 +317,11 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
         ics->code->kind = MFUNCDEC;
         ics->code->u.funcname = malloc(sizeof(char) * 50);
         strcpy(ics->code->u.funcname, cur->child->val.strvalue);
+        if(strcmp(cur->child->sibling->sibling->name, "VarList") == 0) {
+            struct InterCodes* code2 = translate_Param(cur->child->sibling->sibling);
+            ics->next = code2;
+            code2->pre = ics;
+        }
         add_codes(ics);
     }
     else if(strcmp(cur->name, "RETURN") == 0) {
@@ -322,6 +350,12 @@ struct Operand* new_temp() {
     top->u.tno = tempno;
     tempno++;
     return top;
+}
+
+char* new_label() {
+    char* labelname = malloc(sizeof(char) * 50);
+    fprintf(labelname, "label%d", templabelno);
+    return labelname;
 }
 
 // 将一段新的ics插入到codeshead的链表中
@@ -378,6 +412,7 @@ void print_intercodes(struct InterCodes* head) {
             case MARG: printf("ARG "); print_operand(ic->u.arg); break;
             case MFUNCDEC: printf("FUNCTION %s :", ic->u.funcname); break;
             case MRETURN: printf("RETURN "); print_operand(ic->u.rtval); break;
+            case MPARAM: printf("PARAM %s", ic->u.paramname); break;
 
             default: assert(0); break;
         }

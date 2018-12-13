@@ -18,7 +18,8 @@ struct Operand {
 
 struct InterCode {
     enum { MASSIGN, MAND, MOR, MRELOP, MADD, MSUB, MMUL, \
-            MDIV, MMINUS, MNOT, MRW, MFUNC, MRTFUNC, MARG, MFUNCDEC, MRETURN} kind;
+            MDIV, MMINUS, MNOT, MRW, MFUNC, MRTFUNC, MARG, \
+            MFUNCDEC, MRETURN, MPARAM } kind;
     union {
         struct { struct Operand* right; struct Operand* left; } pair;
  
@@ -33,6 +34,8 @@ struct InterCode {
         struct Operand* arg;
         // 函数返回值
         struct Operand* rtval;
+        // 参数的取出
+        char* paramname;
     } u;
 };
 
@@ -53,12 +56,14 @@ void generate_intercodes(struct TreeNode* tn);
 // 翻译函数
 struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place);
 struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_list, int* args_count);
+struct InterCodes* translate_Param(struct TreeNode* VarList);
 
 // 语法树遍历
 void search_tree(struct TreeNode* cur, struct TreeNode* father);
 
 // 生成一个新的临时变量
 struct Operand* new_temp();
+char* new_label();
 
 // 将一段新的ics插入到codeshead的链表中
 void add_codes(struct InterCodes* ics);
