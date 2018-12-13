@@ -26,11 +26,11 @@
 
 %left RELOP
 
-%left PLUS
+%left PLUS MINUS
 
 %left STAR DIV
 
-%right MINUS NOT
+%right NOT
 
 %left LP RP LB RB DOT
 
@@ -47,7 +47,7 @@ Program : ExtDefList {  // printf("Line %d, Column %d\n", yylloc.first_line, yyl
                         union Val v; v.intvalue = 0;
                         $$ = CreatNode(NOTERMINAL, "Program", yyloc.first_line, yylloc.first_column, v);
                         add_child($$, $1);
-                        //if (printflag) printTree($$, 0);
+                        if (printflag) printTree($$, 0);
                         build_vartable($$);
                         //check_program($$);
                         generate_intercodes($$); }
