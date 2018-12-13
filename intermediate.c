@@ -86,22 +86,33 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
         constant->kind = CONSTANT;
         constant->u.ivalue = 0;
         // 生成place :: 0 - t1的代码
-        struct InterCode* ic = create_intercode();
-        ic->kind = MMINUS;
-        ic->u.pair.right = t1;
-        ic->u.pair.left = place;
+        struct InterCode* code2 = create_intercode();
+        code2->kind = MSUB;
+        code2->u.binop.op1 = constant;
+        code2->u.binop.op2 = t1;
+        code2->u.binop.result = place;
         // 将code1和code2插入到临时中间代码链表中
         ics = code1;
         struct InterCodes* fcode1 = code1;
         while(fcode1->next != NULL) fcode1 = fcode1->next;
         fcode1->next = create_intercodes();
-        fcode1->next->code = ic;
+        fcode1->next->code = code2;
         fcode1->next->next = NULL;
         fcode1->next->pre = fcode1;
     }
     else if(strcmp(Exp->child->name, "LP") == 0) {
         struct Operand* t1 = new_temp();
+        //printf("my name is t%d\n", t1->u.tno);
         ics = translate_Exp(Exp->child->sibling, t1);
+        struct InterCodes* code1 = create_intercodes();
+        code1->code = create_intercode();
+        code1->code->kind = MASSIGN;
+        code1->code->u.pair.left = place;
+        code1->code->u.pair.right = t1;
+        struct InterCodes* fcode = ics;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code1;
+        code1->pre = fcode;
     }
     else if(strcmp(Exp->child->sibling->name, "ASSIGNOP") == 0) {
         // 赋值号的左边只能是变量
@@ -184,6 +195,8 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
         //print_intercodes(ics);
         // 将ics加到中间代码链表的尾部
         add_codes(ics);
+        search_tree(cur->sibling, father);
+        return;
     }
     search_tree(cur->child, cur);
     search_tree(cur->sibling, father);
@@ -221,7 +234,7 @@ void print_intercodes(struct InterCodes* head) {
                             printf(" := ");
                             print_operand(ic->u.pair.right); break;
             case MMINUS:    print_operand(ic->u.pair.left);
-                            printf(" := -");
+                            printf(" := - ");
                             print_operand(ic->u.pair.right); break;
             case MADD:  print_operand(ic->u.binop.result);
                         printf(" := ");
