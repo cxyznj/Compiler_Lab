@@ -18,16 +18,22 @@ struct Operand {
 
 struct InterCode {
     enum { MASSIGN, MAND, MOR, MRELOP, MADD, MSUB, MMUL, \
-            MDIV, MMINUS, MNOT } kind;
+            MDIV, MMINUS, MNOT, MRW, MFUNC, MRTFUNC, MARG, MFUNCDEC, MRETURN} kind;
     union {
         struct { struct Operand* right; struct Operand* left; } pair;
+ 
         struct { struct Operand* result; struct Operand* op1; struct Operand* op2; } binop;
+        // MRW表示Read或Write函数
+        struct { int rwflag; struct Operand* op1; } rwfunc;
+        // 不带参数的函数的调用或函数的起始点，使用前记得分配内存！
+        char* funcname;
+        // 带参数的函数的调用
+        struct { char* funcname; struct Operand* result; } rtfunc;
+        // 参数的压栈
+        struct Operand* arg;
+        // 函数返回值
+        struct Operand* rtval;
     } u;
-    //InterCode(struct Operand* assign_right, struct Operand* assign_left) {
-    //    this->kind = ASSIGN;
-    //    this->u.assign.right = assign_right;
-    //    this->u.assign.left = assign_left;
-    //}
 };
 
 struct InterCodes {
@@ -46,6 +52,7 @@ void generate_intercodes(struct TreeNode* tn);
 
 // 翻译函数
 struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place);
+struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_list, int* args_count);
 
 // 语法树遍历
 void search_tree(struct TreeNode* cur, struct TreeNode* father);

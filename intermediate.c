@@ -76,7 +76,75 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
         assert(0);
     }
     else if(strcmp(Exp->child->sibling->name, "LP") == 0) {
-        assert(0);
+        if(Exp->child->sibling->sibling->sibling == NULL) {
+            // Exp ::= ID LP RP
+            struct InterCodes* code1 = create_intercodes();
+            code1->code = create_intercode();
+            if(strcmp(Exp->child->val.strvalue, "read") == 0) {
+                code1->code->kind = MRW;
+                code1->code->u.rwfunc.rwflag = 0;
+                code1->code->u.rwfunc.op1 = place;
+            }
+            else {
+                code1->code->kind = MRTFUNC;
+                code1->code->u.rtfunc.funcname = malloc(sizeof(char) * 50);
+                strcpy(code1->code->u.rtfunc.funcname, Exp->child->val.strvalue);
+                code1->code->u.rtfunc.result = place;
+            }
+            ics = code1;
+        }
+        else {
+            // Exp ::= ID LP Args RP
+            struct InterCodes* codes;
+            struct Operand* args_list[20];
+            int* args_count = malloc(sizeof(int));
+            *args_count = 0;
+            struct InterCodes* code1 = create_intercodes();
+            code1->code = create_intercode();
+            code1 = translate_Args(Exp->child->sibling->sibling, args_list, args_count);
+            if(strcmp(Exp->child->val.strvalue, "write") == 0) {
+                assert(*args_count == 1);
+                codes = code1;
+                struct InterCodes* fcode = codes;
+                while(fcode->next != NULL) fcode = fcode->next;
+                fcode->next = create_intercodes();
+                fcode->next->pre = fcode;
+                fcode->next->code = create_intercode();
+                fcode->next->code->kind = MRW;
+                fcode->next->code->u.rwfunc.rwflag = 1;
+                fcode->next->code->u.rwfunc.op1 = args_list[0];
+            }
+            else {
+                struct InterCodes* code2 = NULL;
+                for(int i = 0; i < *args_count; i++) {
+                    struct InterCodes* ncode = create_intercodes();
+                    ncode->code = create_intercode();
+                    ncode->code->kind = MARG;
+                    ncode->code->u.arg = args_list[i];
+                    if(code2 == NULL) code2 = ncode;
+                    else {
+                        // 插入到链表头部
+                        code2->pre = ncode;
+                        ncode->next = code2;
+                        code2 = ncode;
+                    }
+                }
+                struct InterCodes* fcode = code1;
+                while(fcode->next != NULL) fcode = fcode->next;
+                fcode->next = code2;
+                code2->pre = fcode;
+                while(fcode->next != NULL) fcode = fcode->next;
+                fcode->next = create_intercodes();
+                fcode->next->pre = fcode;
+                fcode->next->code = create_intercode();
+                fcode->next->code->kind = MRTFUNC;
+                fcode->next->code->u.rtfunc.funcname = malloc(sizeof(char) * 50);
+                strcpy(fcode->next->code->u.rtfunc.funcname, Exp->child->val.strvalue);
+                fcode->next->code->u.rtfunc.result = place;
+                codes = code1;
+            }
+            ics = codes;
+        }
     }
     else if(strcmp(Exp->child->name, "MINUS") == 0) {
         struct Operand* t1 = new_temp();
@@ -102,7 +170,6 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
     }
     else if(strcmp(Exp->child->name, "LP") == 0) {
         struct Operand* t1 = new_temp();
-        //printf("my name is t%d\n", t1->u.tno);
         ics = translate_Exp(Exp->child->sibling, t1);
         struct InterCodes* code1 = create_intercodes();
         code1->code = create_intercode();
@@ -148,14 +215,12 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
     }
     else {
         // PLUS/MINUS/STAR/DIV
-        //printf("i'm here\n");
         struct Operand* t1 = new_temp();
         struct Operand* t2 = new_temp();
         struct InterCodes* code1 = translate_Exp(Exp->child, t1);
         struct InterCodes* code2 = translate_Exp(Exp->child->sibling->sibling, t2);
         struct InterCodes* code3 = create_intercodes();
         code3->code = create_intercode();
-        // TODO:添加其他情况
         if(strcmp(Exp->child->sibling->name, "PLUS") == 0)
             code3->code->kind = MADD;
         else if(strcmp(Exp->child->sibling->name, "MINUS") == 0)
@@ -182,6 +247,31 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
     return ics;
 }
 
+
+struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_list, int* args_count) {
+    if(Args->child->sibling == NULL) {
+        // Args ::= Exp
+        struct Operand* t1 = new_temp();
+        struct InterCodes* code1 = translate_Exp(Args->child, t1);
+        args_list[*args_count] = t1;
+        *args_count = *args_count + 1;
+        return code1;
+    }
+    else {
+        // Args ::= Exp COMMA Args
+        struct Operand* t1 = new_temp();
+        struct InterCodes* code1 = translate_Exp(Args->child, t1);
+        args_list[*args_count] = t1;
+        *args_count = *args_count + 1;
+        struct InterCodes* code2 = translate_Args(Args->child->sibling->sibling, args_list, args_count);
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code2;
+        code2->pre = code1;
+        return code1;
+    }
+}
+
 // 语法树遍历
 void search_tree(struct TreeNode* cur, struct TreeNode* father) {
     if(cur == NULL)
@@ -189,13 +279,36 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
     if(father == NULL)
         assert(strcmp(cur->name, "Program") == 0);
     else if(strcmp(cur->name, "Exp") == 0) {
-        struct Operand* t = new_temp();
+        struct Operand* t1 = new_temp();
         struct InterCodes* ics;
-        ics = translate_Exp(cur, t);
+        ics = translate_Exp(cur, t1);
         //print_intercodes(ics);
         // 将ics加到中间代码链表的尾部
         add_codes(ics);
         search_tree(cur->sibling, father);
+        return;
+    }
+    else if(strcmp(cur->name, "FunDec") == 0) {
+        struct InterCodes* ics = create_intercodes();
+        ics->code = create_intercode();
+        ics->code->kind = MFUNCDEC;
+        ics->code->u.funcname = malloc(sizeof(char) * 50);
+        strcpy(ics->code->u.funcname, cur->child->val.strvalue);
+        add_codes(ics);
+    }
+    else if(strcmp(cur->name, "RETURN") == 0) {
+        struct Operand* t1 = new_temp();
+        struct InterCodes* code1;
+        code1 = translate_Exp(cur->sibling, t1);
+        struct InterCodes* code2 = create_intercodes();
+        code2->code = create_intercode();
+        code2->code->kind = MRETURN;
+        code2->code->u.rtval = t1;
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code2;
+        code2->pre = fcode;
+        add_codes(code1);
         return;
     }
     search_tree(cur->child, cur);
@@ -256,6 +369,16 @@ void print_intercodes(struct InterCodes* head) {
                         print_operand(ic->u.binop.op1);
                         printf(" / "); 
                         print_operand(ic->u.binop.op2); break;                        
+            case MRW:   if(ic->u.rwfunc.rwflag) printf("WRITE ");
+                        else printf("READ ");
+                        print_operand(ic->u.rwfunc.op1); break;
+
+            case MFUNC: printf("CALL %s", ic->u.funcname); break;
+            case MRTFUNC: print_operand(ic->u.rtfunc.result); printf(" := CALL %s", ic->u.rtfunc.funcname); break;
+            case MARG: printf("ARG "); print_operand(ic->u.arg); break;
+            case MFUNCDEC: printf("FUNCTION %s :", ic->u.funcname); break;
+            case MRETURN: printf("RETURN "); print_operand(ic->u.rtval); break;
+
             default: assert(0); break;
         }
         printf("\n");
