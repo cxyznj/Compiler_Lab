@@ -67,7 +67,7 @@ struct InterCodes* translate_Cond(struct TreeNode* Exp, char* label_true, char* 
 //struct InterCodes* translate_CompSt(struct TreeNode* CompSt);
 
 // 语法树遍历
-void search_tree(struct TreeNode* cur, struct TreeNode* father);
+void search_tree(struct TreeNode* cur, struct TreeNode* father, int child_flag, int sibling_flag);
 
 // 生成一个新的临时变量
 struct Operand* new_temp();

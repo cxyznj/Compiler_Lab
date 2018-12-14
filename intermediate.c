@@ -6,7 +6,7 @@ int templabelno = 1;
 
 // 模块的接口函数
 void generate_intercodes(struct TreeNode* tn) {
-    search_tree(tn, NULL);
+    search_tree(tn, NULL, 1, 1);
     print_intercodes(codeshead);
 }
 
@@ -440,7 +440,7 @@ struct InterCodes* translate_CompSt(struct TreeNode* CompSt) {
 }*/
 
 // 语法树遍历
-void search_tree(struct TreeNode* cur, struct TreeNode* father) {
+void search_tree(struct TreeNode* cur, struct TreeNode* father, int child_flag, int sibling_flag) {
     if(cur == NULL)
         return;
     if(father == NULL)
@@ -498,7 +498,7 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
         icslabel2->pre = fcode;
         add_codes(icslabel1);
 
-        search_tree(cur->sibling->sibling->sibling->sibling, father);
+        search_tree(cur->sibling->sibling->sibling->sibling, father, 1, 0);
         struct InterCodes* gotolabel1 = create_intercodes();
         gotolabel1->code = create_intercode();
         gotolabel1->code->kind = MGOTO;
@@ -510,18 +510,16 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
         return;
     }
     else if(strcmp(cur->name, "IF") == 0) {
-        printf("i'm here\n");
         if(cur->sibling->sibling->sibling->sibling->sibling == NULL) {
             // Stmt ::= IF LP Exp RP Stmt
             char* label1 = new_label();
             char* label2 = new_label();
             struct InterCodes* code1 = translate_Cond(cur->sibling->sibling, label1, label2);
-            printf("ok\n");
             struct InterCodes* icslabel1 = create_label(label1);
             struct InterCodes* icslabel2 = create_label(label2);
             add_codes(code1);
             add_codes(icslabel1);
-            search_tree(cur->sibling->sibling->sibling->sibling, father);
+            search_tree(cur->sibling->sibling->sibling->sibling, father, 1, 0);
             add_codes(icslabel2);
             return;
         }
@@ -536,7 +534,7 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
             struct InterCodes* icslabel3 = create_label(label3);
             add_codes(code1);
             add_codes(icslabel1);
-            search_tree(cur->sibling->sibling->sibling->sibling, father);
+            search_tree(cur->sibling->sibling->sibling->sibling, father, 1, 0);
             struct InterCodes* gotolabel3 = create_intercodes();
             gotolabel3->code = create_intercode();
             gotolabel3->code->kind = MGOTO;
@@ -544,7 +542,7 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
             gotolabel3->next = icslabel2;
             icslabel2->pre = gotolabel3;
             add_codes(gotolabel3);
-            search_tree(cur->sibling->sibling->sibling->sibling->sibling->sibling, father);
+            search_tree(cur->sibling->sibling->sibling->sibling->sibling->sibling, father, 1, 0);
             add_codes(icslabel3);
             return;
         }
@@ -556,11 +554,13 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
         //print_intercodes(ics);
         // 将ics加到中间代码链表的尾部
         add_codes(ics);
-        search_tree(cur->sibling, father);
+        search_tree(cur->sibling, father, 1, 1);
         return;
     }
-    search_tree(cur->child, cur);
-    search_tree(cur->sibling, father);
+    if(child_flag)
+        search_tree(cur->child, cur, 1, 1);
+    if(sibling_flag)
+        search_tree(cur->sibling, father, 1, 1);
 }
 
 // 生成一个新的临时变量
