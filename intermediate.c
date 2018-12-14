@@ -296,7 +296,12 @@ struct InterCodes* translate_Param(struct TreeNode* VarList) {
 }
 
 struct InterCodes* translate_Cond(struct TreeNode* Exp, char* label_true, char* label_false) {
-    assert(Exp->child->sibling != NULL);
+    printf("%s, %s\n", Exp->name, Exp->child->name);
+    //assert(Exp->child->sibling != NULL);
+    if(Exp->child->sibling == NULL) {
+        //assert(0);
+        goto OTHERS;
+    }
     if(strcmp(Exp->child->sibling->name, "RELOP") == 0) {
         struct Operand* t1 = new_temp();
         struct Operand* t2 = new_temp();
@@ -355,6 +360,7 @@ struct InterCodes* translate_Cond(struct TreeNode* Exp, char* label_true, char* 
         return code1;
     }
     else {
+        OTHERS: ; 
         struct Operand* t1 = new_temp();
         struct InterCodes* code1 = translate_Exp(Exp, t1);
         struct InterCodes* code2 = create_intercodes();
@@ -365,7 +371,10 @@ struct InterCodes* translate_Cond(struct TreeNode* Exp, char* label_true, char* 
         code2->code->u.relopgoto.relopsym = malloc(sizeof(char) * 50);
         strcpy(code2->code->u.relopgoto.relopsym, "!=");
         code2->code->u.relopgoto.label = label_true;
-        struct InterCodes* code3 = create_label(label_false);
+        struct InterCodes* code3 = create_intercodes();
+        code3->code = create_intercode();
+        code3->code->kind = MGOTO;
+        code3->code->u.gotolabel = label_false;
         
         // code1 + code2 + code3
         struct InterCodes* fcode = code1;
@@ -516,6 +525,7 @@ struct Operand* new_temp() {
 char* new_label() {
     char* labelname = malloc(sizeof(char) * 50);
     sprintf(labelname, "label%d", templabelno);
+    templabelno++;
     return labelname;
 }
 
@@ -598,7 +608,7 @@ void print_intercodes(struct InterCodes* head) {
             case MRETURN: printf("RETURN "); print_operand(ic->u.rtval); break;
             case MPARAM: printf("PARAM %s", ic->u.paramname); break;
             case MGOTO: printf("GOTO %s", ic->u.gotolabel); break;
-            case MLABEL: printf("LABEL %s", ic->u.labelname); break;
+            case MLABEL: printf("LABEL %s :", ic->u.labelname); break;
 
             default: assert(0); break;
         }
