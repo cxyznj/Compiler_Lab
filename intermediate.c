@@ -31,7 +31,7 @@ struct InterCodes* create_intercodes() {
 // 翻译函数
 struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
     struct InterCodes* ics = NULL;
-    printf("%s\n", Exp->child->name);
+    printf("%s%d\n", Exp->child->name, Exp->child->situation[0]);
     if(strcmp(Exp->child->name, "INT") == 0) {
         //printf("%d\n", Exp->child->val.intvalue);
         // 生成临时变量
@@ -212,7 +212,9 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
     else if(strcmp(Exp->child->sibling->name, "AND") == 0
             || strcmp(Exp->child->sibling->name, "OR") == 0
             || strcmp(Exp->child->sibling->name, "RELOP") == 0) {
+        printf("relop(%d)", Exp->child->situation[0]);
         assert(0);
+        //ics = translate_Cond(Exp);
     }
     else {
         // PLUS/MINUS/STAR/DIV
@@ -296,7 +298,7 @@ struct InterCodes* translate_Param(struct TreeNode* VarList) {
 }
 
 struct InterCodes* translate_Cond(struct TreeNode* Exp, char* label_true, char* label_false) {
-    printf("%s, %s\n", Exp->name, Exp->child->name);
+    //printf("%s, %s\n", Exp->name, Exp->child->name);
     //assert(Exp->child->sibling != NULL);
     if(Exp->child->sibling == NULL) {
         //assert(0);
@@ -326,6 +328,14 @@ struct InterCodes* translate_Cond(struct TreeNode* Exp, char* label_true, char* 
         while(fcode->next != NULL) fcode = fcode->next;
         fcode->next = code3;
         code3->pre = fcode;
+        while(fcode->next != NULL) fcode = fcode->next;
+        struct InterCodes* gotolabelfalse = create_intercodes();
+        gotolabelfalse->code = create_intercode();
+        gotolabelfalse->code->kind = MGOTO;
+        gotolabelfalse->code->u.gotolabel = label_false;
+        fcode->next = gotolabelfalse;
+        gotolabelfalse->pre = fcode;
+        
         return code1;
     }
     else if(strcmp(Exp->child->name, "NOT") == 0) {
@@ -435,16 +445,6 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
         return;
     if(father == NULL)
         assert(strcmp(cur->name, "Program") == 0);
-    else if(strcmp(cur->name, "Exp") == 0) {
-        struct Operand* t1 = new_temp();
-        struct InterCodes* ics;
-        ics = translate_Exp(cur, t1);
-        //print_intercodes(ics);
-        // 将ics加到中间代码链表的尾部
-        add_codes(ics);
-        search_tree(cur->sibling, father);
-        return;
-    }
     else if(strcmp(cur->name, "FunDec") == 0) {
         struct InterCodes* ics = create_intercodes();
         ics->code = create_intercode();
@@ -507,6 +507,56 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
         icslabel3->pre = gotolabel1;
         add_codes(gotolabel1);
 
+        return;
+    }
+    else if(strcmp(cur->name, "IF") == 0) {
+        printf("i'm here\n");
+        if(cur->sibling->sibling->sibling->sibling->sibling == NULL) {
+            // Stmt ::= IF LP Exp RP Stmt
+            char* label1 = new_label();
+            char* label2 = new_label();
+            struct InterCodes* code1 = translate_Cond(cur->sibling->sibling, label1, label2);
+            printf("ok\n");
+            struct InterCodes* icslabel1 = create_label(label1);
+            struct InterCodes* icslabel2 = create_label(label2);
+            add_codes(code1);
+            add_codes(icslabel1);
+            search_tree(cur->sibling->sibling->sibling->sibling, father);
+            add_codes(icslabel2);
+            return;
+        }
+        else {
+            // Stmt ::= IF LP Exp RP Stmt ELSE Stmt
+            char* label1 = new_label();
+            char* label2 = new_label();
+            char* label3 = new_label();
+            struct InterCodes* code1 = translate_Cond(cur->sibling->sibling, label1, label2);
+            struct InterCodes* icslabel1 = create_label(label1);
+            struct InterCodes* icslabel2 = create_label(label2);
+            struct InterCodes* icslabel3 = create_label(label3);
+            add_codes(code1);
+            add_codes(icslabel1);
+            search_tree(cur->sibling->sibling->sibling->sibling, father);
+            struct InterCodes* gotolabel3 = create_intercodes();
+            gotolabel3->code = create_intercode();
+            gotolabel3->code->kind = MGOTO;
+            gotolabel3->code->u.gotolabel = label3;
+            gotolabel3->next = icslabel2;
+            icslabel2->pre = gotolabel3;
+            add_codes(gotolabel3);
+            search_tree(cur->sibling->sibling->sibling->sibling->sibling->sibling, father);
+            add_codes(icslabel3);
+            return;
+        }
+    }
+    else if(strcmp(cur->name, "Exp") == 0) {
+        struct Operand* t1 = new_temp();
+        struct InterCodes* ics;
+        ics = translate_Exp(cur, t1);
+        //print_intercodes(ics);
+        // 将ics加到中间代码链表的尾部
+        add_codes(ics);
+        search_tree(cur->sibling, father);
         return;
     }
     search_tree(cur->child, cur);
