@@ -19,10 +19,11 @@ struct Operand {
 struct InterCode {
     enum { MASSIGN, MAND, MOR, MRELOP, MADD, MSUB, MMUL, \
             MDIV, MMINUS, MNOT, MRW, MFUNC, MRTFUNC, MARG, \
-            MFUNCDEC, MRETURN, MPARAM } kind;
+            MFUNCDEC, MRETURN, MPARAM, MGOTO, MLABEL } kind;
     union {
+        // MRELOP: IF t1 op t2 GOTO label_true
+        struct { struct Operand* t1; char* relopsym; struct Operand* t2; char* label; } relopgoto;
         struct { struct Operand* right; struct Operand* left; } pair;
- 
         struct { struct Operand* result; struct Operand* op1; struct Operand* op2; } binop;
         // MRW表示Read或Write函数
         struct { int rwflag; struct Operand* op1; } rwfunc;
@@ -36,6 +37,10 @@ struct InterCode {
         struct Operand* rtval;
         // 参数的取出
         char* paramname;
+        // goto的标号
+        char* gotolabel;
+        // label的标号
+        char* labelname;
     } u;
 };
 
@@ -57,6 +62,9 @@ void generate_intercodes(struct TreeNode* tn);
 struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place);
 struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_list, int* args_count);
 struct InterCodes* translate_Param(struct TreeNode* VarList);
+struct InterCodes* translate_Cond(struct TreeNode* Exp, char* label_true, char* label_false);
+//struct InterCodes* translate_Stmt(struct TreeNode* Stmt);
+//struct InterCodes* translate_CompSt(struct TreeNode* CompSt);
 
 // 语法树遍历
 void search_tree(struct TreeNode* cur, struct TreeNode* father);
@@ -65,8 +73,14 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father);
 struct Operand* new_temp();
 char* new_label();
 
+struct Operand* new_constant(int val);
+
 // 将一段新的ics插入到codeshead的链表中
 void add_codes(struct InterCodes* ics);
+
+// 生成一个LABEL的中间代码
+struct InterCodes* create_label(char* labelname);
+
 
 // 打印中间代码链表
 void print_intercodes(struct InterCodes* head);

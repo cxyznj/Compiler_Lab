@@ -295,6 +295,131 @@ struct InterCodes* translate_Param(struct TreeNode* VarList) {
     return code1;
 }
 
+struct InterCodes* translate_Cond(struct TreeNode* Exp, char* label_true, char* label_false) {
+    assert(Exp->child->sibling != NULL);
+    if(strcmp(Exp->child->sibling->name, "RELOP") == 0) {
+        struct Operand* t1 = new_temp();
+        struct Operand* t2 = new_temp();
+        struct InterCodes* code1 = translate_Exp(Exp->child, t1);
+        struct InterCodes* code2 = translate_Exp(Exp->child->sibling->sibling, t2);
+ 
+        char* op = malloc(sizeof(char) * 50);
+        strcpy(op, Exp->child->sibling->val.strvalue);
+        struct InterCodes* code3 = create_intercodes();
+        code3->code = create_intercode();
+        code3->code->kind = MRELOP;
+        code3->code->u.relopgoto.t1 = t1;
+        code3->code->u.relopgoto.t2 = t2;
+        code3->code->u.relopgoto.relopsym = malloc(sizeof(char) * 50);
+        strcpy(code3->code->u.relopgoto.relopsym, op);
+        code3->code->u.relopgoto.label = label_true;
+        // 合并code1, code2, code3
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code2;
+        code2->pre = fcode;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code3;
+        code3->pre = fcode;
+        return code1;
+    }
+    else if(strcmp(Exp->child->name, "NOT") == 0) {
+        return translate_Cond(Exp->child->sibling, label_false, label_true);
+    }
+    else if(strcmp(Exp->child->sibling->name, "AND") == 0) {
+        char* label1 = new_label();
+        struct InterCodes* code1 = translate_Cond(Exp->child, label1, label_false);
+        struct InterCodes* code2 = translate_Cond(Exp->child->sibling->sibling, label_true, label_false);
+        struct InterCodes* icslabel1 = create_label(label1);
+        // code1 + icslabel1 + code2
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = icslabel1;
+        icslabel1->pre = fcode;
+        icslabel1->next = code2;
+        code2->pre = icslabel1;
+        return code1;
+    }
+    else if(strcmp(Exp->child->sibling->name, "OR") == 0) {
+        char* label1 = new_label();
+        struct InterCodes* code1 = translate_Cond(Exp->child, label_true, label1);
+        struct InterCodes* code2 = translate_Cond(Exp->child->sibling->sibling, label_true, label_false);
+        struct InterCodes* icslabel1 = create_label(label1);
+        // code1 + icslabel1 + code2
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = icslabel1;
+        icslabel1->pre = fcode;
+        icslabel1->next = code2;
+        code2->pre = icslabel1;
+        return code1;
+    }
+    else {
+        struct Operand* t1 = new_temp();
+        struct InterCodes* code1 = translate_Exp(Exp, t1);
+        struct InterCodes* code2 = create_intercodes();
+        code2->code = create_intercode();
+        code2->code->kind = MRELOP;
+        code2->code->u.relopgoto.t1 = t1;
+        code2->code->u.relopgoto.t2 = new_constant(0);
+        code2->code->u.relopgoto.relopsym = malloc(sizeof(char) * 50);
+        strcpy(code2->code->u.relopgoto.relopsym, "!=");
+        code2->code->u.relopgoto.label = label_true;
+        struct InterCodes* code3 = create_label(label_false);
+        
+        // code1 + code2 + code3
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code2;
+        code2->pre = fcode;
+        code2->next = code3;
+        code3->pre = code2;
+        return code1;
+    }
+}
+
+/*struct InterCodes* translate_Stmt(struct TreeNode* Stmt) {
+    if(strcmp(Stmt->child->name, "Exp") == 0) {
+        struct Operand* t1 = new_temp();
+        return translate_Exp(Stmt->child, t1);
+    }
+    else if(strcmp(Stmt->child->name, "CompSt") == 0) {
+        return translate_CompSt(Stmt->child);
+    }
+    else if(strcmp(Stmt->child->name, "RETURN") == 0) {
+        struct Operand* t1 = new_temp();
+        struct InterCodes* code1;
+        code1 = translate_Exp(Stmt->child->sibling, t1);
+        struct InterCodes* code2 = create_intercodes();
+        code2->code = create_intercode();
+        code2->code->kind = MRETURN;
+        code2->code->u.rtval = t1;
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code2;
+        code2->pre = fcode;
+        return code1;
+    }
+    else {
+        assert(0);
+    }
+}
+
+struct InterCodes* translate_CompSt(struct TreeNode* CompSt) {
+    struct InterCodes* codes = NULL;
+    struct TreeNode* StmtList = CompSt->child->sibling->sibling;
+    for( ; StmtList->ttype != EMPTY; StmtList = StmtList->child->sibling) {
+        printf("This is Stmt %d\n", StmtList->child->situation[0]);
+        struct InterCodes* code1 = translate_Stmt(StmtList->child);
+        struct InterCodes* fcode = codes;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code1;
+        code1->pre = codes;
+    }
+    assert(codes != NULL);
+    return codes;
+}*/
+
 // 语法树遍历
 void search_tree(struct TreeNode* cur, struct TreeNode* father) {
     if(cur == NULL)
@@ -322,6 +447,14 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
             ics->next = code2;
             code2->pre = ics;
         }
+        /*assert(strcmp(cur->sibling->name, "CompSt") == 0);
+        printf("xixi\n");
+        struct InterCodes* code3 = translate_CompSt(cur->sibling);
+        printf("haha\n");
+        struct InterCodes* fcode = ics;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code3;
+        code3->pre = fcode;*/
         add_codes(ics);
     }
     else if(strcmp(cur->name, "RETURN") == 0) {
@@ -339,6 +472,34 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father) {
         add_codes(code1);
         return;
     }
+    else if(strcmp(cur->name, "WHILE") == 0) {
+        char* label1 = new_label();
+        char* label2 = new_label();
+        char* label3 = new_label();
+        struct InterCodes* code1 = translate_Cond(cur->sibling->sibling, label2, label3);
+        struct InterCodes* icslabel1 = create_label(label1);
+        struct InterCodes* icslabel2 = create_label(label2);
+        struct InterCodes* icslabel3 = create_label(label3);
+
+        icslabel1->next = code1;
+        code1->pre = icslabel1;
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = icslabel2;
+        icslabel2->pre = fcode;
+        add_codes(icslabel1);
+
+        search_tree(cur->sibling->sibling->sibling->sibling, father);
+        struct InterCodes* gotolabel1 = create_intercodes();
+        gotolabel1->code = create_intercode();
+        gotolabel1->code->kind = MGOTO;
+        gotolabel1->code->u.gotolabel = label1;
+        gotolabel1->next = icslabel3;
+        icslabel3->pre = gotolabel1;
+        add_codes(gotolabel1);
+
+        return;
+    }
     search_tree(cur->child, cur);
     search_tree(cur->sibling, father);
 }
@@ -354,8 +515,15 @@ struct Operand* new_temp() {
 
 char* new_label() {
     char* labelname = malloc(sizeof(char) * 50);
-    fprintf(labelname, "label%d", templabelno);
+    sprintf(labelname, "label%d", templabelno);
     return labelname;
+}
+
+struct Operand* new_constant(int val) {
+    struct Operand* nconstant = create_operand();
+    nconstant->kind = CONSTANT;
+    nconstant->u.ivalue = val;
+    return nconstant;
 }
 
 // 将一段新的ics插入到codeshead的链表中
@@ -367,7 +535,17 @@ void add_codes(struct InterCodes* ics) {
         struct InterCodes* fic = codeshead;
         while(fic->next != NULL) fic = fic->next;
         fic->next = ics;
+        ics->pre = fic;
     }
+}
+
+// 生成一个LABEL的中间代码
+struct InterCodes* create_label(char* labelname) {
+    struct InterCodes* icslabel = create_intercodes();
+    icslabel->code = create_intercode();
+    icslabel->code->kind = MLABEL;
+    icslabel->code->u.labelname = labelname;
+    return icslabel;
 }
 
 // 打印中间代码链表
@@ -377,6 +555,12 @@ void print_intercodes(struct InterCodes* head) {
     while(pic != NULL) {
         struct InterCode* ic = pic->code;
         switch(ic->kind) {
+            case MRELOP:     printf("IF ");
+                            print_operand(ic->u.relopgoto.t1);
+                            printf(" %s ", ic->u.relopgoto.relopsym);
+                            print_operand(ic->u.relopgoto.t2);
+                            printf(" GOTO %s", ic->u.relopgoto.label);
+                            break;
             case MASSIGN:   print_operand(ic->u.pair.left);
                             printf(" := ");
                             print_operand(ic->u.pair.right); break;
@@ -413,6 +597,8 @@ void print_intercodes(struct InterCodes* head) {
             case MFUNCDEC: printf("FUNCTION %s :", ic->u.funcname); break;
             case MRETURN: printf("RETURN "); print_operand(ic->u.rtval); break;
             case MPARAM: printf("PARAM %s", ic->u.paramname); break;
+            case MGOTO: printf("GOTO %s", ic->u.gotolabel); break;
+            case MLABEL: printf("LABEL %s", ic->u.labelname); break;
 
             default: assert(0); break;
         }
