@@ -311,32 +311,40 @@ void find_vartable(struct TreeNode* cur, struct TreeNode* father, char* type, in
                 }
 
                 // 获取参数名
-                assert(strcmp(paramdec->child->sibling->child->name, "ID") == 0);
-                char* paramname = malloc(sizeof(char) * 50);
-                strcpy(paramname, paramdec->child->sibling->child->val.strvalue);
-                //printf("The parameter is: %s(%s)\n", paramname, paramtype);
+                // 为了将参数表中的数组加到变量表中，不得以出此下策
+                //assert(strcmp(paramdec->child->sibling->child->name, "ID") == 0);
+                if(strcmp(paramdec->child->sibling->child->name, "ID") != 0) {
+                    strcpy(paramdec->name, "Def");
+                    find_vartable(paramdec->child, paramdec, NULL, NULL, 0);
+                    strcpy(paramdec->name, "ParamDec");
+                }
+                else {
+                    char* paramname = malloc(sizeof(char) * 50);
+                    strcpy(paramname, paramdec->child->sibling->child->val.strvalue);
+                    //printf("The parameter is: %s(%s)\n", paramname, paramtype);
 
-                struct VarTable* npt = create_vartable();
-                strcpy(npt->name, paramname);
-                if(strcmp(paramtype, "int") == 0) {
-                    npt->vartype.kind = BASIC;
-                    npt->vartype.u.basic = 1;
-                }
-                else if (strcmp(paramtype, "float") == 0) {
-                    npt->vartype.kind = BASIC;
-                    npt->vartype.u.basic = 2;
-                }
-                else {
-                    npt->vartype.kind = STRUCTURE;
-                    npt->vartype.u.structure = get_fieldlist(paramtype, cur->situation[0]);
-                }
-                // 将新的参数添加到参数表中
-                if(paramtable == NULL)
-                    paramtable = npt;
-                else {
-                    struct VarTable* fpt = paramtable;
-                    while(fpt->next != NULL) fpt = fpt->next;
-                    fpt->next = npt;
+                    struct VarTable* npt = create_vartable();
+                    strcpy(npt->name, paramname);
+                    if(strcmp(paramtype, "int") == 0) {
+                        npt->vartype.kind = BASIC;
+                        npt->vartype.u.basic = 1;
+                    }
+                    else if (strcmp(paramtype, "float") == 0) {
+                        npt->vartype.kind = BASIC;
+                        npt->vartype.u.basic = 2;
+                    }
+                    else {
+                        npt->vartype.kind = STRUCTURE;
+                        npt->vartype.u.structure = get_fieldlist(paramtype, cur->situation[0]);
+                    }
+                    // 将新的参数添加到参数表中
+                    if(paramtable == NULL)
+                        paramtable = npt;
+                    else {
+                        struct VarTable* fpt = paramtable;
+                        while(fpt->next != NULL) fpt = fpt->next;
+                        fpt->next = npt;
+                    }
                 }
 
                 //printf("Add a new param %s(%s)in function:%s\n", paramname, paramtype, nfunctype->name);
@@ -1120,4 +1128,44 @@ void print_exp(struct TreeNode* exp) {
         printf(".");
         printf("%s", exp->child->sibling->sibling->val.strvalue);
     }
+}
+
+// 为其他文件使用的：搜索变量及结构体
+struct VarTable* get_vartable(char* name) {
+    struct VarTable* fvt = vartablehead;
+    for(; fvt != NULL; fvt = fvt->next) {
+        if(strcmp(fvt->name, name) == 0) {
+            return fvt;
+        }
+    }
+    return NULL;
+}
+struct StructTable* get_structtable(char* name) {
+    struct StructTable* fvt = strutablehead;
+    for(; fvt != NULL; fvt = fvt->next) {
+        if(strcmp(fvt->name, name) == 0) {
+            return fvt;
+        }
+    }
+    return NULL;
+}
+
+// 获取数组第i维的大小
+int get_arrsize(int dim, struct Type* arrtype) {
+    assert(arrtype != NULL);
+    printf("gtest1\n");
+    printf("%d\n", arrtype->kind);
+    for(; dim > 0; dim--) {
+        arrtype = arrtype->u.array.elem;
+    }
+    printf("%d\n", arrtype->kind);
+    printf("gtest2\n");
+    int result = 1;
+    while(arrtype->kind == ARRAY) {
+        printf("loop1\n");
+        result = result * arrtype->u.array.size;
+        arrtype = arrtype->u.array.elem;
+    }
+    printf("gtest3\n");
+    return result;
 }

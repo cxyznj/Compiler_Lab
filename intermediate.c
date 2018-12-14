@@ -74,7 +74,24 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
         assert(0);
     }
     else if(strcmp(Exp->child->sibling->name, "LB") == 0) {
-        assert(0);
+        //assert(0);
+        struct Operand* arraddr = new_temp();
+        struct InterCodes* code1 = get_addr(Exp, arraddr);
+        // place = *arraddr
+        struct InterCodes* assignval = create_intercodes();
+        assignval->code = create_intercode();
+        assignval->code->kind = MGVALUE;
+        assignval->code->u.getvalue.type = 0;
+        assignval->code->u.getvalue.x = place;
+        assignval->code->u.getvalue.y = arraddr;
+        // 将code1, assignval加入ics
+        ics = code1;
+        struct InterCodes* fcode = ics;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = assignval;
+        assignval->pre = fcode;
+        // TODO:
+        //assert(0);
     }
     else if(strcmp(Exp->child->sibling->name, "LP") == 0) {
         if(Exp->child->sibling->sibling->sibling == NULL) {
@@ -184,30 +201,61 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
     }
     else if(strcmp(Exp->child->sibling->name, "ASSIGNOP") == 0) {
         // 赋值号的左边只能是变量
-        assert(strcmp(Exp->child->child->name, "ID") == 0);
+        //assert(strcmp(Exp->child->child->name, "ID") == 0);
         struct Operand* var = create_operand();
-        var->kind = VARIABLE;
-        var->u.varname = malloc(sizeof(char) * 50);
-        strcpy(var->u.varname, Exp->child->child->val.strvalue);
-        struct Operand* t1 = new_temp();
-        struct InterCodes* code1 = translate_Exp(Exp->child->sibling->sibling, t1);
-        struct InterCodes* code2 = create_intercodes();
-        code2->code = create_intercode();
-        code2->code->kind = MASSIGN;
-        code2->code->u.pair.left = var;
-        code2->code->u.pair.right = t1;
-        code2->next = create_intercodes();
-        code2->next->code = create_intercode();
-        code2->next->code->kind = MASSIGN;
-        code2->next->code->u.pair.left = place;
-        code2->next->code->u.pair.right = var;
-        //print_intercodes(code2);
+        if(strcmp(Exp->child->child->name, "ID") == 0) {
+            var->kind = VARIABLE;
+            var->u.varname = malloc(sizeof(char) * 50);
+            strcpy(var->u.varname, Exp->child->child->val.strvalue);
+            struct Operand* t1 = new_temp();
+            struct InterCodes* code1 = translate_Exp(Exp->child->sibling->sibling, t1);
+            struct InterCodes* code2 = create_intercodes();
+            code2->code = create_intercode();
+            code2->code->kind = MASSIGN;
+            code2->code->u.pair.left = var;
+            code2->code->u.pair.right = t1;
+            code2->next = create_intercodes();
+            code2->next->code = create_intercode();
+            code2->next->code->kind = MASSIGN;
+            code2->next->code->u.pair.left = place;
+            code2->next->code->u.pair.right = var;
+            //print_intercodes(code2);
 
-        struct InterCodes* fcode1 = code1;
-        while(fcode1->next != NULL) fcode1 = fcode1->next;
-        fcode1->next = code2;
-        code2->pre = fcode1;
-        ics = code1;
+            struct InterCodes* fcode1 = code1;
+            while(fcode1->next != NULL) fcode1 = fcode1->next;
+            fcode1->next = code2;
+            code2->pre = fcode1;
+            ics = code1;
+        }
+        else {
+            // 左边是数组类型的变量
+            struct Operand* t0 = new_temp();
+            struct InterCodes* code0 = get_addr(Exp->child, t0);
+            struct Operand* t1 = new_temp();
+            struct InterCodes* code1 = translate_Exp(Exp->child->sibling->sibling, t1);
+            struct InterCodes* arrassign = create_intercodes();
+            arrassign->code = create_intercode();
+            arrassign->code->kind = MGVALUE;
+            arrassign->code->u.getvalue.type = 1;
+            arrassign->code->u.getvalue.x = t0;
+            arrassign->code->u.getvalue.y = t1;
+            struct InterCodes* code2 = create_intercodes();
+            code2->code = create_intercode();
+            code2->code->kind = MGVALUE;
+            code2->code->u.getvalue.type = 0;
+            code2->code->u.getvalue.x = place;
+            code2->code->u.getvalue.y = t0;
+            struct InterCodes* fcode = code0;
+            while(fcode->next != NULL) fcode = fcode->next;
+            fcode->next = code1;
+            code1->pre = fcode;
+            while(fcode->next != NULL) fcode = fcode->next;
+            fcode->next = arrassign;
+            arrassign->pre = fcode;
+            arrassign->next = code2;
+            code2->pre = arrassign;
+            ics = code0;
+        }
     }
     else if(strcmp(Exp->child->sibling->name, "AND") == 0
             || strcmp(Exp->child->sibling->name, "OR") == 0
@@ -276,7 +324,7 @@ struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_l
 }
 
 struct InterCodes* translate_Param(struct TreeNode* VarList) {
-    assert(strcmp(VarList->child->child->sibling->child->name, "ID") == 0);
+    //assert(strcmp(VarList->child->child->sibling->child->name, "ID") == 0);
     struct InterCodes* code1 = create_intercodes();
     code1->code = create_intercode();
     code1->code->kind = MPARAM;
@@ -445,6 +493,22 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father, int child_flag, 
         return;
     if(father == NULL)
         assert(strcmp(cur->name, "Program") == 0);
+    else if(strcmp(cur->name, "VarDec") == 0) {
+        if(strcmp(cur->child->name, "VarDec") == 0) {
+            // 遇到数组的定义
+            while(strcmp(cur->name, "VarDec") == 0) cur = cur->child;
+            struct VarTable* vt = get_vartable(cur->val.strvalue);
+            int size = get_arrsize(0, &(vt->vartype)) * 4;
+            struct InterCodes* ndec = create_intercodes();
+            ndec->code = create_intercode();
+            ndec->code->kind = MDEC;
+            ndec->code->u.dec.decname = cur->val.strvalue;
+            ndec->code->u.dec.decsize = size;
+            add_codes(ndec);
+            search_tree(cur->sibling, father, 1, 1);
+            return;
+        }
+    }
     else if(strcmp(cur->name, "FunDec") == 0) {
         struct InterCodes* ics = create_intercodes();
         ics->code = create_intercode();
@@ -608,6 +672,82 @@ struct InterCodes* create_label(char* labelname) {
     return icslabel;
 }
 
+// 获取一个数组变量的最终地址
+struct InterCodes* get_addr(struct TreeNode* Exp, struct Operand* arraddr) {
+        struct InterCodes* ics = NULL;
+
+        struct Operand* t[20];
+        int tcount = 0;
+        for(int i = 0; i < 20; i++) t[i] = new_temp();
+        printf("test1\n");
+        while(strcmp(Exp->child->name, "ID") != 0) {
+            struct InterCodes* code1 = translate_Exp(Exp->child->sibling->sibling, t[tcount++]);
+            if(ics == NULL)
+                ics = code1;
+            else {
+                struct InterCodes* fcode = ics;
+                while(fcode->next != NULL) fcode = fcode->next;
+                fcode->next = code1;
+                code1->pre = fcode;
+            }
+            Exp = Exp->child;
+        }
+        printf("test2\n");
+        printf("%s\n", Exp->child->val.strvalue);
+        struct VarTable* arr = get_vartable(Exp->child->val.strvalue);
+        // 生成代码
+        // arraddr = 首地址
+        struct InterCodes* code2 = create_intercodes();
+        code2->code = create_intercode();
+        code2->code->kind = MGADDRESS;
+        code2->code->u.getaddress.x = arraddr;
+        struct Operand* arrname = create_operand();
+        arrname->kind = VARIABLE;
+        arrname->u.varname = Exp->child->val.strvalue;
+        code2->code->u.getaddress.y = arrname;
+        printf("test3\n");
+        // arraddr = arraddr + 第i维的地址
+        for(int i = 0; i < tcount; i++) {
+            // t[i] = t[i] * (第i维的数组大小 * 4)
+            printf("test31\n");
+            int size = get_arrsize(i+1, &(arr->vartype));
+            printf("test311\n");
+            size = size * 4;
+            struct Operand* opsize = create_operand();
+            opsize->kind = CONSTANT;
+            opsize->u.ivalue = size;
+            printf("test312\n");
+            struct InterCodes* code3 = create_intercodes();
+            code3->code = create_intercode();
+            code3->code->kind = MMUL;
+            printf("test32\n");
+            code3->code->u.binop.result = t[tcount - i - 1];
+            code3->code->u.binop.op1 = t[tcount - i - 1];
+            code3->code->u.binop.op2 = opsize;
+            // arraddr = arraddr + t[i]
+            printf("test33\n");
+            code3->next = create_intercodes();
+            code3->next->pre = code3;
+            code3->next->code = create_intercode();
+            code3->next->code->kind = MADD;
+            code3->next->code->u.binop.result = arraddr;
+            code3->next->code->u.binop.op1 = arraddr;
+            code3->next->code->u.binop.op2 = t[tcount - i - 1];
+            printf("test34\n");
+            // 合并代码
+            struct InterCodes* fcode = code2;
+            while(fcode->next != NULL) fcode = fcode->next;
+            fcode->next = code3;
+            code3->pre = fcode;
+        }
+        printf("test4\n");
+        struct InterCodes* fcode = ics;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = code2;
+        code2->pre = fcode;
+        return ics;
+}
+
 // 打印中间代码链表
 void print_intercodes(struct InterCodes* head) {
     printf("\033[;33mIntermediate Codes:\033[0m\n");
@@ -659,7 +799,10 @@ void print_intercodes(struct InterCodes* head) {
             case MPARAM: printf("PARAM %s", ic->u.paramname); break;
             case MGOTO: printf("GOTO %s", ic->u.gotolabel); break;
             case MLABEL: printf("LABEL %s :", ic->u.labelname); break;
-
+            case MGADDRESS: print_operand(ic->u.getaddress.x); printf(" := &"); print_operand(ic->u.getaddress.y); break;
+            case MGVALUE:   if(ic->u.getvalue.type == 0) { print_operand(ic->u.getvalue.x); printf(" := *"); print_operand(ic->u.getvalue.y); }
+                            else { printf("*"); print_operand(ic->u.getvalue.x); printf(" := "); print_operand(ic->u.getvalue.y); } break;
+            case MDEC: printf("DEC %s %d", ic->u.dec.decname, ic->u.dec.decsize); break;
             default: assert(0); break;
         }
         printf("\n");

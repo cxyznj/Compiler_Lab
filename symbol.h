@@ -149,4 +149,10 @@ void print_functable();
 // 打印一个exp
 void print_exp(struct TreeNode* exp);
 
+// 为其他文件使用的：搜索变量及结构体
+struct VarTable* get_vartable(char* name);
+struct StructTable* get_structtable(char* name);
+// 获取数组第i维的大小
+int get_arrsize(int dim, struct Type* arrtype);
+
 #endif

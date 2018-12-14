@@ -19,7 +19,8 @@ struct Operand {
 struct InterCode {
     enum { MASSIGN, MAND, MOR, MRELOP, MADD, MSUB, MMUL, \
             MDIV, MMINUS, MNOT, MRW, MFUNC, MRTFUNC, MARG, \
-            MFUNCDEC, MRETURN, MPARAM, MGOTO, MLABEL } kind;
+            MFUNCDEC, MRETURN, MPARAM, MGOTO, MLABEL, \
+            MGADDRESS, MGVALUE, MDEC } kind;
     union {
         // MRELOP: IF t1 op t2 GOTO label_true
         struct { struct Operand* t1; char* relopsym; struct Operand* t2; char* label; } relopgoto;
@@ -41,6 +42,12 @@ struct InterCode {
         char* gotolabel;
         // label的标号
         char* labelname;
+        // MGADDRESS
+        struct { struct Operand* x; struct Operand* y; } getaddress;
+        // type == 0: x := *y
+        // type == 1: *x := y
+        struct { struct Operand* x; struct Operand *y; int type; } getvalue;
+        struct { char* decname; int decsize; } dec;
     } u;
 };
 
@@ -81,6 +88,8 @@ void add_codes(struct InterCodes* ics);
 // 生成一个LABEL的中间代码
 struct InterCodes* create_label(char* labelname);
 
+// 获取一个数组变量的最终地址
+struct InterCodes* get_addr(struct TreeNode* Exp, struct Operand* arraddr);
 
 // 打印中间代码链表
 void print_intercodes(struct InterCodes* head);
