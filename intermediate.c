@@ -4,13 +4,14 @@ struct InterCodes* codeshead = NULL;
 int tempno = 1;
 int templabelno = 1;
 struct CharList* charlisthead = NULL;
+FILE* out;
 
 // 模块的接口函数
 void generate_intercodes(struct TreeNode* tn) {
     search_tree(tn, NULL, 1, 1);
     remedy_pre();
     // 优化开关，选择性打开
-    //optimize_intercodes();
+    optimize_intercodes();
     print_intercodes(codeshead);
 }
 
@@ -831,63 +832,65 @@ int source_of_array(char* arrname) {
 
 // 打印中间代码链表
 void print_intercodes(struct InterCodes* head) {
-    printf("\033[;33mIntermediate Codes:\033[0m\n");
+    out = fopen("test.ir", "wt");
+    //printf("\033[;33mIntermediate Codes:\033[0m\n");
     struct InterCodes* pic = head;
     while(pic != NULL) {
         struct InterCode* ic = pic->code;
         print_intercode(ic);
-        printf("\n");
+        fprintf(out, "\n");
         pic = pic->next;
     }
+    fclose(out);
 }
 
 void print_intercode(struct InterCode* ic) {
     switch(ic->kind) {
-            case MRELOP:     printf("IF ");
+            case MRELOP:    fprintf(out, "IF ");
                             print_operand(ic->u.relopgoto.t1);
-                            printf(" %s ", ic->u.relopgoto.relopsym);
+                            fprintf(out, " %s ", ic->u.relopgoto.relopsym);
                             print_operand(ic->u.relopgoto.t2);
-                            printf(" GOTO %s", ic->u.relopgoto.label);
+                            fprintf(out, " GOTO %s", ic->u.relopgoto.label);
                             break;
             case MASSIGN:   print_operand(ic->u.pair.left);
-                            printf(" := ");
+                            fprintf(out, " := ");
                             print_operand(ic->u.pair.right); break;
             case MADD:  print_operand(ic->u.binop.result);
-                        printf(" := ");
+                        fprintf(out, " := ");
                         print_operand(ic->u.binop.op1);
-                        printf(" + "); 
+                        fprintf(out, " + "); 
                         print_operand(ic->u.binop.op2); break;
             case MSUB:  print_operand(ic->u.binop.result);
-                        printf(" := ");
+                        fprintf(out, " := ");
                         print_operand(ic->u.binop.op1);
-                        printf(" - "); 
+                        fprintf(out, " - "); 
                         print_operand(ic->u.binop.op2); break;
             case MMUL:  print_operand(ic->u.binop.result);
-                        printf(" := ");
+                        fprintf(out, " := ");
                         print_operand(ic->u.binop.op1);
-                        printf(" * "); 
+                        fprintf(out, " * "); 
                         print_operand(ic->u.binop.op2); break;                        
             case MDIV:  print_operand(ic->u.binop.result);
-                        printf(" := ");
+                        fprintf(out, " := ");
                         print_operand(ic->u.binop.op1);
-                        printf(" / "); 
+                        fprintf(out, " / "); 
                         print_operand(ic->u.binop.op2); break;                        
-            case MRW:   if(ic->u.rwfunc.rwflag) printf("WRITE ");
-                        else printf("READ ");
+            case MRW:   if(ic->u.rwfunc.rwflag) fprintf(out, "WRITE ");
+                        else fprintf(out, "READ ");
                         print_operand(ic->u.rwfunc.op1); break;
 
-            case MFUNC: printf("CALL %s", ic->u.funcname); break;
-            case MRTFUNC: print_operand(ic->u.rtfunc.result); printf(" := CALL %s", ic->u.rtfunc.funcname); break;
-            case MARG: printf("ARG "); print_operand(ic->u.arg); break;
-            case MFUNCDEC: printf("FUNCTION %s :", ic->u.funcname); break;
-            case MRETURN: printf("RETURN "); print_operand(ic->u.rtval); break;
-            case MPARAM: printf("PARAM %s", ic->u.paramname); break;
-            case MGOTO: printf("GOTO %s", ic->u.gotolabel); break;
-            case MLABEL: printf("LABEL %s :", ic->u.labelname); break;
-            case MGADDRESS: print_operand(ic->u.getaddress.x); printf(" := &"); print_operand(ic->u.getaddress.y); break;
-            case MGVALUE:   if(ic->u.getvalue.type == 0) { print_operand(ic->u.getvalue.x); printf(" := *"); print_operand(ic->u.getvalue.y); }
-                            else { printf("*"); print_operand(ic->u.getvalue.x); printf(" := "); print_operand(ic->u.getvalue.y); } break;
-            case MDEC: printf("DEC %s %d", ic->u.dec.decname, ic->u.dec.decsize); break;
+            case MFUNC: fprintf(out, "CALL %s", ic->u.funcname); break;
+            case MRTFUNC: print_operand(ic->u.rtfunc.result); fprintf(out, " := CALL %s", ic->u.rtfunc.funcname); break;
+            case MARG: fprintf(out, "ARG "); print_operand(ic->u.arg); break;
+            case MFUNCDEC: fprintf(out, "FUNCTION %s :", ic->u.funcname); break;
+            case MRETURN: fprintf(out, "RETURN "); print_operand(ic->u.rtval); break;
+            case MPARAM: fprintf(out, "PARAM %s", ic->u.paramname); break;
+            case MGOTO: fprintf(out, "GOTO %s", ic->u.gotolabel); break;
+            case MLABEL: fprintf(out, "LABEL %s :", ic->u.labelname); break;
+            case MGADDRESS: print_operand(ic->u.getaddress.x); fprintf(out, " := &"); print_operand(ic->u.getaddress.y); break;
+            case MGVALUE:   if(ic->u.getvalue.type == 0) { print_operand(ic->u.getvalue.x); fprintf(out, " := *"); print_operand(ic->u.getvalue.y); }
+                            else { fprintf(out, "*"); print_operand(ic->u.getvalue.x); fprintf(out, " := "); print_operand(ic->u.getvalue.y); } break;
+            case MDEC: fprintf(out, "DEC %s %d", ic->u.dec.decname, ic->u.dec.decsize); break;
             default: assert(0); break;
         }
 }
@@ -895,9 +898,9 @@ void print_intercode(struct InterCode* ic) {
 // 打印操作数
 void print_operand(struct Operand* op) {
     switch(op->kind) {
-        case VARIABLE: printf("%s", op->u.varname); break;
-        case CONSTANT: printf("#%d", op->u.ivalue); break;
-        case TEMP: printf("t%d", op->u.tno); break;
+        case VARIABLE: fprintf(out, "%s", op->u.varname); break;
+        case CONSTANT: fprintf(out, "#%d", op->u.ivalue); break;
+        case TEMP: fprintf(out, "t%d", op->u.tno); break;
         default: assert(0); break;
     }
 }
@@ -931,8 +934,8 @@ void optimize_intercodes() {
     // 死代码消除
     for(; optimize != NULL; optimize = optimize->next) {
         // 如果该条指令对一个操作数进行了赋值，但后面没有用到这个值的话，可以去除
-        print_intercode(optimize->code);
-        printf(":\n");
+        //print_intercode(optimize->code);
+        //printf(":\n");
         struct Operand* opleft;
         struct InterCode* opticode = optimize->code;
         switch(opticode->kind) {
@@ -961,9 +964,9 @@ void optimize_intercodes() {
                 case MGVALUE: operandcmp(scode->u.getvalue.x, opleft); useflag = operandcmp(scode->u.getvalue.y, opleft); break;
                 default: break;
             }
-            printf("\t%d %d ", assignflag, useflag);
-            print_intercode(scode);
-            printf("\n");
+            //printf("\t%d %d ", assignflag, useflag);
+            //print_intercode(scode);
+            //printf("\n");
             if(useflag == 1)
                 globaluseflag = 1;
             if(assignflag == 1)

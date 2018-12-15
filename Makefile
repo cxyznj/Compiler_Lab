@@ -13,5 +13,5 @@ lex.yy.c : lexical.l
 # 定义的一些伪目标
 .PHONY: clean
 clean:
-	rm -f parser lex.yy.c syntax.tab.c syntax.tab.h syntax.output
+	rm -f parser lex.yy.c syntax.tab.c syntax.tab.h syntax.output test.ir
 	rm -f *~
