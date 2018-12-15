@@ -17,14 +17,14 @@ struct Operand {
 };
 
 struct InterCode {
-    enum { MASSIGN, MAND, MOR, MRELOP, MADD, MSUB, MMUL, \
-            MDIV, MMINUS, MNOT, MRW, MFUNC, MRTFUNC, MARG, \
+    enum { MASSIGN, MRELOP, MADD, MSUB, MMUL, \
+            MDIV, MRW, MFUNC, MRTFUNC, MARG, \
             MFUNCDEC, MRETURN, MPARAM, MGOTO, MLABEL, \
             MGADDRESS, MGVALUE, MDEC } kind;
     union {
+        struct { struct Operand* right; struct Operand* left; } pair;
         // MRELOP: IF t1 op t2 GOTO label_true
         struct { struct Operand* t1; char* relopsym; struct Operand* t2; char* label; } relopgoto;
-        struct { struct Operand* right; struct Operand* left; } pair;
         struct { struct Operand* result; struct Operand* op1; struct Operand* op2; } binop;
         // MRW表示Read或Write函数
         struct { int rwflag; struct Operand* op1; } rwfunc;
@@ -46,7 +46,7 @@ struct InterCode {
         struct { struct Operand* x; struct Operand* y; } getaddress;
         // type == 0: x := *y
         // type == 1: *x := y
-        struct { struct Operand* x; struct Operand *y; int type; } getvalue;
+        struct { struct Operand* x; struct Operand* y; int type; } getvalue;
         struct { char* decname; int decsize; } dec;
     } u;
 };
@@ -57,10 +57,16 @@ struct InterCodes {
     struct InterCodes* next;
 };
 
+struct CharList {
+    char* charname;
+    struct CharList* next;
+};
+
 // 安全创建结构体函数
 struct Operand* create_operand();
 struct InterCode* create_intercode();
 struct InterCodes* create_intercodes();
+struct CharList* create_charlist();
 
 // 模块的接口函数
 void generate_intercodes(struct TreeNode* tn);
@@ -91,9 +97,22 @@ struct InterCodes* create_label(char* labelname);
 // 获取一个数组变量的最终地址
 struct InterCodes* get_addr(struct TreeNode* Exp, struct Operand* arraddr);
 
+// 判断当前的数组是否是一个参数传来的数组
+int source_of_array(char* arrname);
+
 // 打印中间代码链表
 void print_intercodes(struct InterCodes* head);
+void print_intercode(struct InterCode* ic);
 // 打印操作数
 void print_operand(struct Operand* op);
+
+// 补全可能遗漏的pre指针
+void remedy_pre();
+
+// 比较两个Operand指针指向的内容是否相等
+int operandcmp(struct Operand* t1, struct Operand* t2);
+
+// 优化中间代码
+void optimize_intercodes();
 
 #endif

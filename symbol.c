@@ -1153,19 +1153,19 @@ struct StructTable* get_structtable(char* name) {
 // 获取数组第i维的大小
 int get_arrsize(int dim, struct Type* arrtype) {
     assert(arrtype != NULL);
-    printf("gtest1\n");
-    printf("%d\n", arrtype->kind);
+    //printf("gtest1\n");
+    //printf("%d\n", arrtype->kind);
     for(; dim > 0; dim--) {
         arrtype = arrtype->u.array.elem;
     }
-    printf("%d\n", arrtype->kind);
-    printf("gtest2\n");
+    //printf("%d\n", arrtype->kind);
+    //printf("gtest2\n");
     int result = 1;
     while(arrtype->kind == ARRAY) {
-        printf("loop1\n");
+        //printf("loop1\n");
         result = result * arrtype->u.array.size;
         arrtype = arrtype->u.array.elem;
     }
-    printf("gtest3\n");
+    //printf("gtest3\n");
     return result;
 }
