@@ -1,11 +1,17 @@
 #include "intermediate.h"
 
+// 中间代码表头
 struct InterCodes* codeshead = NULL;
+// 临时变量编号
 int tempno = 1;
+// label编号
 int templabelno = 1;
+// 存储当前函数的参数，用于判断这个数组是否是一个参数
 struct CharList* charlisthead = NULL;
-FILE* out;
+// 存储当前函数的名字
 char funcname[50];
+// 文件指针
+FILE* out;
 
 // 模块的接口函数
 void generate_intercodes(struct TreeNode* tn) {
@@ -322,17 +328,54 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
     else if(strcmp(Exp->child->sibling->name, "AND") == 0
             || strcmp(Exp->child->sibling->name, "OR") == 0
             || strcmp(Exp->child->sibling->name, "RELOP") == 0) {
-        assert(0);
-        if(strcmp(Exp->child->sibling->name, "AND") == 0) {
+        char* label1 = new_label();
+        char* label2 = new_label();
 
-        }
-        else if(strcmp(Exp->child->sibling->name, "OR") == 0) {
+        struct InterCodes* labeltrue = create_intercodes();
+        labeltrue->code = create_intercode();
+        labeltrue->code->kind = MLABEL;
+        labeltrue->code->u.labelname = label1;
 
-        }
-        else {
-            
-        }
-        
+        struct InterCodes* labelfalse = create_intercodes();
+        labelfalse->code = create_intercode();
+        labelfalse->code->kind = MLABEL;
+        labelfalse->code->u.labelname = label2;
+
+        struct Operand* constant0 = create_operand();
+        constant0->kind = CONSTANT;
+        constant0->u.ivalue = 0;
+
+        struct Operand* constant1 = create_operand();
+        constant1->kind = CONSTANT;
+        constant1->u.ivalue = 1;
+
+        struct InterCodes* code0 = create_intercodes();
+        code0->code = create_intercode();
+        code0->code->kind = MASSIGN;
+        code0->code->u.pair.left = place;
+        code0->code->u.pair.right = constant0;
+
+        struct InterCodes* code1 = translate_Cond(Exp, label1, label2);
+
+        struct InterCodes* code2 = create_intercodes();
+        code2->code = create_intercode();
+        code2->code->kind = MASSIGN;
+        code2->code->u.pair.left = place;
+        code2->code->u.pair.right = constant1;
+
+        // 合并
+        code0->next = code1;
+        code1->pre = code0;
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = labeltrue;
+        labeltrue->pre = fcode;
+        labeltrue->next = code2;
+        code2->pre = labeltrue;
+        code2->next = labelfalse;
+        labelfalse->pre = code2;
+
+        ics = code0;
     }
     else {
         // PLUS/MINUS/STAR/DIV
