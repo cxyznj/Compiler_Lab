@@ -417,13 +417,13 @@ struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_l
     struct TreeNode* find_id = Args->child;
     while(strcmp(find_id->name, "Exp") == 0) find_id = find_id->child;
     if(strcmp(find_id->name, "ID") == 0) {
-        if(get_vartable(find_id->val.strvalue)->vartype.kind == ARRAY)
-            arr_flag = 1;
+        if(get_vartable(find_id->val.strvalue)->vartype.kind == ARRAY) {
+            if(Args->child->child == find_id)
+                arr_flag = 1;
+        } 
     }
-    if(strcmp(funcname, "write") == 0)
-        arr_flag = 0;
-
-    printf("This is %d\n", arr_flag);
+    //if(strcmp(funcname, "write") == 0)
+    //    arr_flag = 0;
 
     if(Args->child->sibling == NULL) {
         // Args ::= Exp
