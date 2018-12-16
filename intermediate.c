@@ -5,13 +5,14 @@ int tempno = 1;
 int templabelno = 1;
 struct CharList* charlisthead = NULL;
 FILE* out;
+char funcname[50];
 
 // 模块的接口函数
 void generate_intercodes(struct TreeNode* tn) {
     search_tree(tn, NULL, 1, 1);
     remedy_pre();
     // 优化开关，选择性打开
-    optimize_intercodes();
+    //optimize_intercodes();
     print_intercodes(codeshead);
 }
 
@@ -80,9 +81,58 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
         assert(0);
     }
     else if(strcmp(Exp->child->name, "NOT") == 0) {
-        assert(0);
+        struct Operand* t1 = new_temp();
+        struct InterCodes* code1 = translate_Exp(Exp->child->sibling, t1);
+
+        struct Operand* constant0 = create_operand();
+        constant0->kind = CONSTANT;
+        constant0->u.ivalue = 0;
+        struct Operand* constant1 = create_operand();
+        constant1->kind = CONSTANT;
+        constant1->u.ivalue = 1;
+
+        char* label1 = new_label();
+        struct InterCodes* labeltrue = create_intercodes();
+        labeltrue->code = create_intercode();
+        labeltrue->code->kind = MLABEL;
+        labeltrue->code->u.labelname = label1;
+
+        struct InterCodes* passign0 = create_intercodes();
+        passign0->code = create_intercode();
+        passign0->code->kind = MASSIGN;
+        passign0->code->u.pair.left = place;
+        passign0->code->u.pair.right = constant0;
+
+        struct InterCodes* passign1 = create_intercodes();
+        passign1->code = create_intercode();
+        passign1->code->kind = MASSIGN;
+        passign1->code->u.pair.left = place;
+        passign1->code->u.pair.right = constant1;
+
+        struct InterCodes* judge = create_intercodes();
+        judge->code = create_intercode();
+        judge->code->kind = MRELOP;
+        judge->code->u.relopgoto.t1 = t1;
+        judge->code->u.relopgoto.relopsym = malloc(sizeof(char) * 50);
+        strcpy(judge->code->u.relopgoto.relopsym, "==");
+        judge->code->u.relopgoto.t2 = constant0;
+        judge->code->u.relopgoto.label = label1;
+
+        // code1 + judge + passign0 + labeltrue + passign1
+        ics = code1;
+        struct InterCodes* fcode = code1;
+        while(fcode->next != NULL) fcode = fcode->next;
+        fcode->next = judge;
+        judge->pre = fcode;
+        judge->next = passign0;
+        passign0->pre = judge;
+        passign0->next = labeltrue;
+        labeltrue->pre = passign0;
+        labeltrue->next = passign1;
+        passign1->pre = labeltrue;
     }
     else if(strcmp(Exp->child->sibling->name, "DOT") == 0) {
+        printf("\033[;31mCannot translate: Code contains variables or parameters of structure type.\033[0m\n");
         assert(0);
     }
     else if(strcmp(Exp->child->sibling->name, "LB") == 0) {
@@ -129,6 +179,7 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
             *args_count = 0;
             struct InterCodes* code1 = create_intercodes();
             code1->code = create_intercode();
+            strcpy(funcname, Exp->child->val.strvalue);
             code1 = translate_Args(Exp->child->sibling->sibling, args_list, args_count);
             if(strcmp(Exp->child->val.strvalue, "write") == 0) {
                 assert(*args_count == 1);
@@ -271,9 +322,17 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
     else if(strcmp(Exp->child->sibling->name, "AND") == 0
             || strcmp(Exp->child->sibling->name, "OR") == 0
             || strcmp(Exp->child->sibling->name, "RELOP") == 0) {
-        printf("relop(%d)", Exp->child->situation[0]);
         assert(0);
-        //ics = translate_Cond(Exp);
+        if(strcmp(Exp->child->sibling->name, "AND") == 0) {
+
+        }
+        else if(strcmp(Exp->child->sibling->name, "OR") == 0) {
+
+        }
+        else {
+            
+        }
+        
     }
     else {
         // PLUS/MINUS/STAR/DIV
@@ -318,7 +377,10 @@ struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_l
         if(get_vartable(find_id->val.strvalue)->vartype.kind == ARRAY)
             arr_flag = 1;
     }
-    arr_flag = 0;
+    if(strcmp(funcname, "write") == 0)
+        arr_flag = 0;
+
+    printf("This is %d\n", arr_flag);
 
     if(Args->child->sibling == NULL) {
         // Args ::= Exp
@@ -349,8 +411,26 @@ struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_l
         // Args ::= Exp COMMA Args
         struct Operand* t1 = new_temp();
         struct InterCodes* code1 = translate_Exp(Args->child, t1);
-        args_list[*args_count] = t1;
-        *args_count = *args_count + 1;
+        if(arr_flag) {
+            struct Operand* t2 = new_temp();
+            struct InterCodes* getaddrics = create_intercodes();
+            getaddrics->code = create_intercode();
+            getaddrics->code->kind = MGADDRESS;
+            getaddrics->code->u.getaddress.x = t2;
+            getaddrics->code->u.getaddress.y = t1;
+            struct InterCodes* fcode = code1;
+            while(fcode->next != NULL) fcode = fcode->next;
+            fcode->next = getaddrics;
+            getaddrics->pre = fcode;
+
+            args_list[*args_count] = t2;
+            *args_count = *args_count + 1;            
+        }
+        else {
+            args_list[*args_count] = t1;
+            *args_count = *args_count + 1;
+        }
+
         struct InterCodes* code2 = translate_Args(Args->child->sibling->sibling, args_list, args_count);
         struct InterCodes* fcode = code1;
         while(fcode->next != NULL) fcode = fcode->next;
@@ -549,6 +629,7 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father, int child_flag, 
     if(father == NULL)
         assert(strcmp(cur->name, "Program") == 0);
     else if(strcmp(cur->name, "VarDec") == 0) {
+        // 作为参数的数组不需要DEC
         if(strcmp(father->name, "ParamDec") == 0) {
             search_tree(cur->sibling, father, 1, 1);
             return;
@@ -565,6 +646,26 @@ void search_tree(struct TreeNode* cur, struct TreeNode* father, int child_flag, 
             ndec->code->u.dec.decsize = size;
             add_codes(ndec);
             search_tree(cur->sibling, father, 1, 1);
+            return;
+        }
+        if(cur->sibling != NULL) {
+            // Dec ::= VarDec ASSIGNOP Exp
+            assert(strcmp(cur->child->name, "ID") == 0);
+            struct Operand* v1 = create_operand();
+            v1->kind = VARIABLE;
+            v1->u.varname = malloc(sizeof(char) * 50);
+            strcpy(v1->u.varname, cur->child->val.strvalue);
+
+            struct Operand* t1 = new_temp();
+            struct InterCodes* code1 = translate_Exp(cur->sibling->sibling, t1);
+            add_codes(code1);
+
+            struct InterCodes* vassign = create_intercodes();
+            vassign->code = create_intercode();
+            vassign->code->kind = MASSIGN;
+            vassign->code->u.pair.left = v1;
+            vassign->code->u.pair.right = t1;
+            add_codes(vassign);
             return;
         }
     }
