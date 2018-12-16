@@ -29,9 +29,9 @@ int init_table() {
 void build_vartable(struct TreeNode* tn) {
     find_vartable(tn, NULL, NULL, NULL, 0);
     // 打印变量表/结构体表及函数表
-    print_vartable();
-    print_strutable();
-    print_functable();
+    //print_vartable();
+    //print_strutable();
+    //print_functable();
 }
 
 void check_program(struct TreeNode* tn) {

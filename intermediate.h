@@ -115,4 +115,6 @@ int operandcmp(struct Operand* t1, struct Operand* t2);
 // 优化中间代码
 void optimize_intercodes();
 
+void get_filename(char* fname);
+
 #endif
