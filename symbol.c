@@ -1169,3 +1169,18 @@ int get_arrsize(int dim, struct Type* arrtype) {
     //printf("gtest3\n");
     return result;
 }
+
+// 获取函数的参数个数
+int get_paramnum(char* fname) {
+    struct FunctionTable* fft = functablehead;
+    for(; fft != NULL; fft = fft->next) {
+        if(strcmp(fft->func->name, fname) == 0) {
+            int rtvalue = 0;
+            struct VarTable* fvt = fft->func->paratable;
+            for(; fvt != NULL; fvt = fvt->next)
+                rtvalue++;
+            return rtvalue;
+        }
+    }
+    return 0;
+}

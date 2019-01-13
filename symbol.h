@@ -154,5 +154,7 @@ struct VarTable* get_vartable(char* name);
 struct StructTable* get_structtable(char* name);
 // 获取数组第i维的大小
 int get_arrsize(int dim, struct Type* arrtype);
+// 获取函数的参数个数
+int get_paramnum(char* fname);
 
 #endif

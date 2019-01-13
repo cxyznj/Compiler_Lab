@@ -18,6 +18,7 @@ void generate_mips32code() {
 
     // The number of parameters of this function
     int param_num = 0;
+    int real_param_num = 0;
     // The number of arguments of this call
     int arg_num = 0;
 
@@ -27,7 +28,7 @@ void generate_mips32code() {
         struct InterCode* ic = pic->code;
         
         if(ic->kind == MFUNCDEC) {
-            param_num = 0;
+            param_num = real_param_num = get_paramnum(ic->u.funcname);
 
             out = fopen(filename, "a");
             // print the name of function
@@ -230,6 +231,8 @@ void generate_mips32code() {
 
             // call function
             out = fopen(filename, "a");
+            // set the number of arguments
+            fprintf(out, "\tli $a3, %d\n", arg_num);
             // save fp
             fprintf(out, "\taddi $sp, $sp, -4\n\tsw $fp, 0($sp)\n");
             fprintf(out, "\taddi $sp, $sp, -4\n\tsw $ra, 0($sp)\n\tjal %s\n\tlw $ra, 0($sp)\n\taddi $sp, $sp, 4\n", fname);
@@ -258,9 +261,9 @@ void generate_mips32code() {
             }
 
             // remove the arguments which in the stack
-            if(arg_num > 4) {
+            if(arg_num > 3) {
                 out = fopen(filename, "a");
-                fprintf(out, "\taddi $sp, $sp, %d\n", (arg_num-4)*4);
+                fprintf(out, "\taddi $sp, $sp, %d\n", (arg_num-3)*4);
                 fclose(out);
             }
             arg_num = 0;
@@ -352,7 +355,7 @@ void generate_mips32code() {
                 vartoreg(aoffset * 4, "t0");
             }
 
-            if(arg_num < 4) {
+            if(arg_num < 3) {
                 out = fopen(filename, "a");
                 fprintf(out, "\tmove $a%d, $t0\n", arg_num);
                 fclose(out);
@@ -369,19 +372,19 @@ void generate_mips32code() {
             // put arguments into reg t0
             if(param_num < 4) {
                 out = fopen(filename, "a");
-                fprintf(out, "\tmove $t0, $a%d\n", param_num);
+                fprintf(out, "\tmove $t0, $a%d\n", param_num - 1);
                 fclose(out);
             }
             else {
                 out = fopen(filename, "a");
-                fprintf(out, "\tlw $t0, %d($fp)\n", (param_num-4)*4 + 12);
+                fprintf(out, "\tlw $t0, %d($fp)\n", (real_param_num - param_num)*4 + 12);
                 fclose(out);
             }
 
             int poffset = get_var_offset(ic->u.paramname);
             regtovar(poffset * 4, "t0");
 
-            param_num++;
+            param_num--;
         }
         else if(ic->kind == MGADDRESS) {
             // 获取数组的首地址（以偏移量表示）
