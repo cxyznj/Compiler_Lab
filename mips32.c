@@ -374,7 +374,7 @@ void generate_mips32code() {
             }
             else {
                 out = fopen(filename, "a");
-                fprintf(out, "\tlw $t0, %d($sp)\n", (param_num-4)*4 + 8);
+                fprintf(out, "\tlw $t0, %d($fp)\n", (param_num-4)*4 + 12);
                 fclose(out);
             }
 
