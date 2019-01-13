@@ -2,6 +2,7 @@
 #include "syntax.tab.h"
 #include "symbol.h"
 #include "intermediate.h"
+#include "mips32.h"
 
 extern FILE* f;
 int yyparse (void);

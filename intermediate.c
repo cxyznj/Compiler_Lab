@@ -12,7 +12,6 @@ struct CharList* charlisthead = NULL;
 char funcname[50];
 // 文件指针
 FILE* out;
-char* filename;
 
 void get_filename(char* fname) {
     filename = malloc(sizeof(char) * 50);
@@ -26,7 +25,7 @@ void generate_intercodes(struct TreeNode* tn) {
     remedy_pre();
     // 优化开关，选择性打开
     //optimize_intercodes();
-    print_intercodes(codeshead);
+    //print_intercodes(codeshead);
 }
 
 // 安全创建结构体函数
@@ -983,7 +982,7 @@ int source_of_array(char* arrname) {
 
 // 打印中间代码链表
 void print_intercodes(struct InterCodes* head) {
-    out = fopen(filename, "wt");
+    out = fopen("intercode", "wt");
     //printf("\033[;33mIntermediate Codes:\033[0m\n");
     struct InterCodes* pic = head;
     while(pic != NULL) {
@@ -1130,4 +1129,8 @@ void optimize_intercodes() {
             free(optimize);
         }
     }
+}
+
+int get_tempno() {
+    return tempno;
 }

@@ -117,4 +117,11 @@ void optimize_intercodes();
 
 void get_filename(char* fname);
 
+// 获取内部定义的变量
+int get_tempno();
+
+// 变量的声明
+struct InterCodes* codeshead;
+char* filename;
+
 #endif

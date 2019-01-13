@@ -9,6 +9,7 @@
     #include "datastruct.h"
     #include "symbol.h"
     #include "intermediate.h"
+    #include "mips32.h"
     
     int yyerror(char* msg);
     int printflag = 1;
@@ -50,7 +51,8 @@ Program : ExtDefList {  // printf("Line %d, Column %d\n", yylloc.first_line, yyl
                         //if (printflag) printTree($$, 0);
                         build_vartable($$);
                         //check_program($$);
-                        generate_intercodes($$); }
+                        generate_intercodes($$);
+                        generate_mips32code(); }
     ;
 ExtDefList : ExtDef ExtDefList {    union Val v; v.intvalue = 0;
                                     $$ = CreatNode(NOTERMINAL, "ExtDefList", yyloc.first_line, yylloc.first_column, v);
