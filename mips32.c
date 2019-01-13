@@ -33,16 +33,16 @@ void generate_mips32code() {
             // print the name of function
             fprintf(out, "%s:\n", ic->u.funcname);
 
-            if(strcmp(ic->u.funcname, "main") == 0) {
+            //if(strcmp(ic->u.funcname, "main") == 0) {
                 fprintf(out, "\taddi $sp, $sp, -4\n");
                 // 记录栈开始位置
                 fprintf(out, "\tmove $fp, $sp\n");            
                 // 为变量（和临时变量）分配空间
                 fprintf(out, "\taddi $sp, $sp, -%d\n", varoffset * 4);    
-            }
+            //}
 
             // 保存s0-s7
-            fprintf(out, "\taddi $sp, $sp, -32\n");
+            /*fprintf(out, "\taddi $sp, $sp, -32\n");
             fprintf(out, "\tsw $s0, 28($sp)\n");
             fprintf(out, "\tsw $s1, 24($sp)\n");
             fprintf(out, "\tsw $s2, 20($sp)\n");
@@ -50,7 +50,7 @@ void generate_mips32code() {
             fprintf(out, "\tsw $s4, 12($sp)\n");
             fprintf(out, "\tsw $s5, 8($sp)\n");
             fprintf(out, "\tsw $s6, 4($sp)\n");
-            fprintf(out, "\tsw $s7, 0($sp)\n");
+            fprintf(out, "\tsw $s7, 0($sp)\n");*/
             fclose(out);
         }
         else if(ic->kind == MLABEL) {
@@ -61,7 +61,7 @@ void generate_mips32code() {
         else if(ic->kind == MASSIGN) {
             if(ic->u.pair.right->kind == CONSTANT) {
                 int loffset = get_var_offset(get_operand_name(ic->u.pair.left));
-                vartoreg(loffset * 4, "t0");
+                //vartoreg(loffset * 4, "t0");
 
                 out = fopen(filename, "a");
                 fprintf(out, "\tli $t0, %d\n", ic->u.pair.right->u.ivalue);
@@ -71,7 +71,7 @@ void generate_mips32code() {
             else {
                 // kind == VARIABLE || TEMP
                 int loffset = get_var_offset(get_operand_name(ic->u.pair.left));
-                vartoreg(loffset * 4, "t0");                
+                //vartoreg(loffset * 4, "t0");                
                 int roffset = get_var_offset(get_operand_name(ic->u.pair.right));
                 vartoreg(roffset * 4, "t1");                
 
@@ -82,8 +82,7 @@ void generate_mips32code() {
             }
         }
         else if(ic->kind == MADD || ic->kind == MSUB) {
-            int roffset = get_var_offset(get_operand_name(ic->u.binop.result));
-            vartoreg(roffset * 4, "t0");            
+            //vartoreg(roffset * 4, "t0");            
             if(ic->u.binop.op1->kind == CONSTANT) {
                 out = fopen(filename, "a");
                 fprintf(out, "\tli $t1, %d\n", ic->u.binop.op1->u.ivalue);
@@ -130,12 +129,13 @@ void generate_mips32code() {
                     fclose(out);                    
                 }
             }
+            int roffset = get_var_offset(get_operand_name(ic->u.binop.result));
             regtovar(roffset * 4, "t0");
         }
         else if(ic->kind == MMUL || ic->kind == MDIV) {
             // 生成t0
             int roffset = get_var_offset(get_operand_name(ic->u.binop.result));
-            vartoreg(roffset * 4, "t0");
+            //vartoreg(roffset * 4, "t0");
             // 生成t1
             if(ic->u.binop.op1->kind == CONSTANT) {
                 out = fopen(filename, "a");
@@ -203,8 +203,20 @@ void generate_mips32code() {
             // get function name
             char fname[50];
             if(ic->kind == MRW) {
-                if(ic->u.rwfunc.rwflag)
+                if(ic->u.rwfunc.rwflag) {
                     strcpy(fname, "write");
+
+                    // put write arguments into $a1
+                    if(ic->u.rwfunc.op1->kind == CONSTANT) {
+                        out = fopen(filename, "a");
+                        fprintf(out, "\tli $a0, %d\n", ic->u.rwfunc.op1->u.ivalue);
+                        fclose(out);
+                    }
+                    else {
+                        int toffset = get_var_offset(get_operand_name(ic->u.rwfunc.op1));
+                        vartoreg(toffset * 4, "a0");
+                    }
+                }
                 else
                     strcpy(fname, "read");
             }
@@ -218,7 +230,10 @@ void generate_mips32code() {
 
             // call function
             out = fopen(filename, "a");
+            // save fp
+            fprintf(out, "\taddi $sp, $sp, -4\n\tsw $fp, 0($sp)\n");
             fprintf(out, "\taddi $sp, $sp, -4\n\tsw $ra, 0($sp)\n\tjal %s\n\tlw $ra, 0($sp)\n\taddi $sp, $sp, 4\n", fname);
+            fprintf(out, "\tlw $fp, 0($sp)\n\taddi $sp, $sp, 4\n");
             fclose(out);
 
             // get return value
@@ -265,7 +280,7 @@ void generate_mips32code() {
             fprintf(out, "\tmove $v0, $t0\n");
 
             // recover stack
-            fprintf(out, "\tlw $s0, 28($sp)\n");
+            /*fprintf(out, "\tlw $s0, 28($sp)\n");
             fprintf(out, "\tlw $s1, 24($sp)\n");
             fprintf(out, "\tlw $s2, 20($sp)\n");
             fprintf(out, "\tlw $s3, 16($sp)\n");
@@ -273,7 +288,8 @@ void generate_mips32code() {
             fprintf(out, "\tlw $s5, 8($sp)\n");
             fprintf(out, "\tlw $s6, 4($sp)\n");
             fprintf(out, "\tlw $s7, 0($sp)\n");
-            fprintf(out, "\taddi $sp, $sp, 32\n");
+            fprintf(out, "\taddi $sp, $sp, 32\n");*/
+            fprintf(out, "\taddi $sp, $sp, %d\n", (varoffset+1) * 4);    
 
             // return caller
             fprintf(out, "\tjr $ra\n");
@@ -358,7 +374,7 @@ void generate_mips32code() {
             }
             else {
                 out = fopen(filename, "a");
-                fprintf(out, "\tlw $t0, %d($sp)\n", (param_num-4)*4 + 4);
+                fprintf(out, "\tlw $t0, %d($sp)\n", (param_num-4)*4 + 8);
                 fclose(out);
             }
 
