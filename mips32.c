@@ -383,6 +383,17 @@ void generate_mips32code() {
 
             param_num++;
         }
+        else if(ic->kind == MGADDRESS) {
+            // 获取数组的首地址（以偏移量表示）
+            int yoffset = get_var_offset(get_operand_name(ic->u.getaddress.y));
+            out = fopen(filename, "a");
+            // 将数组的首地址放在t0中            
+            fprintf(out, "\taddi $t0, $fp, -%d\n", yoffset * 4);
+            // 将t0中存放的地址放入x中
+            fclose(out);
+            int xoffset = get_var_offset(get_operand_name(ic->u.getaddress.x));
+            regtovar(xoffset * 4, "t0");
+        }
     }
     print_intercodes(codeshead);
 }
@@ -411,7 +422,20 @@ int generate_offset(struct VarTable* vh) {
             rtvalue++;
         }
         else if(fvh->vartype.kind == ARRAY) {
-            assert(0);
+            // 默认为int类型的一维数组
+            int arr_len = fvh->vartype.u.array.size;
+
+            struct VarStack* nvs = create_varstack();
+            strcpy(nvs->varname, fvh->name);
+            nvs->offset = rtvalue;
+            if(varstackhead == NULL)
+                varstackhead = nvs;
+            else {
+                struct VarStack* fvs = varstackhead;
+                while(fvs->next != NULL) fvs = fvs->next;
+                fvs->next = nvs;
+            }
+            rtvalue += arr_len;
         }
         else {
             printf("You can not use STRUCTURE type!\n");
