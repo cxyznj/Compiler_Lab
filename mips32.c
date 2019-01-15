@@ -7,8 +7,8 @@ void generate_mips32code() {
     // 为变量分配栈空间
     int varoffset = generate_offset(vartablehead);
     // 检查是否正确为变量分配了栈空间
-    printf("offset = %d\n", varoffset);
-    print_varstack();
+    //printf("offset = %d\n", varoffset);
+    //print_varstack();
     // 直接将目标代码输出到文件
     out = fopen(filename, "w");
     // 输出首部信息

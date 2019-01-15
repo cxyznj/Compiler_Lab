@@ -166,7 +166,7 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
         assignval->pre = fcode;
     }
     else if(strcmp(Exp->child->sibling->name, "LP") == 0) {
-        printf("funcname = %s\n", Exp->child->val.strvalue);
+        //printf("funcname = %s\n", Exp->child->val.strvalue);
         if(Exp->child->sibling->sibling->sibling == NULL) {
             // Exp ::= ID LP RP
             struct InterCodes* code1 = create_intercodes();
@@ -194,7 +194,7 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
             code1->code = create_intercode();
             strcpy(funcname, Exp->child->val.strvalue);
             code1 = translate_Args(Exp->child->sibling->sibling, args_list, args_count);
-            printf("End translate args\n");
+            //printf("End translate args\n");
             if(strcmp(Exp->child->val.strvalue, "write") == 0) {
                 assert(*args_count == 1);
                 codes = code1;
@@ -421,7 +421,7 @@ struct InterCodes* translate_Exp(struct TreeNode* Exp, struct Operand* place) {
 
 
 struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_list, int* args_count) {
-    printf("Translate args\n");
+    //printf("Translate args\n");
     /*int arr_flag = 0;
     struct TreeNode* find_id = Args->child;
     while(strcmp(find_id->name, "Exp") == 0) find_id = find_id->child;
@@ -434,13 +434,13 @@ struct InterCodes* translate_Args(struct TreeNode* Args, struct Operand** args_l
     //if(strcmp(funcname, "write") == 0)
     //    arr_flag = 0;
 
-    printf("Translate Args child\n");
+    //printf("Translate Args child\n");
     if(Args->child->sibling == NULL) {
         // Args ::= Exp
         struct Operand* t1 = new_temp();
-        printf("Translate args-Exp\n");
+        //printf("Translate args-Exp\n");
         struct InterCodes* code1 = translate_Exp(Args->child, t1);
-        printf("End translate args-Exp\n");
+        //printf("End translate args-Exp\n");
         /*if(arr_flag) {
             struct Operand* t2 = new_temp();
             struct InterCodes* getaddrics = create_intercodes();
